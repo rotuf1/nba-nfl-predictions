@@ -28,15 +28,6 @@ def fmt_odds(o):
     return f"+{o}" if o > 0 else str(o)
 
 
-def render_market_row(label, prob, extra=""):
-    return f"""
-      <div class="market-row">
-        <span class="market-label">{esc(label)}</span>
-        <span class="market-value">{fmt_pct(prob)}</span>
-        {extra}
-      </div>"""
-
-
 def render_injury_group(team_name, injuries, ok):
     if not ok:
         body = "unavailable"
@@ -56,41 +47,37 @@ def render_game_card(game):
     game: {
       league, tipoff_et_str, away_abbr, away_name, home_abbr, home_name,
       status ('scheduled'|'final'), final_score (str or None),
-      model_home_prob, market_true_home_prob,
+      pick_team_name, model_pick_prob,
+      market_pick_team_name, market_pick_prob, edge,
       dk_home_odds, dk_away_odds,
       kalshi_home_prob, kalshi_away_prob (or None each),
       polymarket_home_prob, polymarket_away_prob (or None each),
-      edge, why (str),
+      why (list of str),
     }
     """
     g = game
     pick_team = g.get("pick_team_name")
     if pick_team is not None:
-        pick_html = (f'Model picks <span class="pick-team">{esc(pick_team)}</span> to win, '
-                     f'{fmt_pct(g["model_pick_prob"])} probability')
+        pick_html = f'<span class="pick-team">{esc(pick_team)}</span> {fmt_pct(g["model_pick_prob"])}'
     else:
         pick_html = "unavailable"
 
-    edge_html = "Edge unavailable (no market line to compare against)."
-    disagreement_html = ""
-    if g.get("market_pick_prob") is not None and g.get("edge") is not None:
-        edge = g["edge"]
-        edge_pts = edge * 100
-        if abs(edge_pts) < 0.5:
-            edge_html = (f"~0 pts — the model and the market agree almost exactly on "
-                         f"{esc(pick_team)}.")
-        elif edge >= 0:
-            edge_html = (f"+{edge_pts:.1f} pts — the model is <em>more</em> bullish on "
-                         f"{esc(pick_team)} than the (de-vigged) market is.")
-        else:
-            edge_html = (f"{edge_pts:.1f} pts — the model is <em>less</em> bullish on "
-                         f"{esc(pick_team)} than the (de-vigged) market is.")
+    market_pick_team = g.get("market_pick_team_name")
+    if market_pick_team is not None:
+        market_pick_html = (f'<span class="pick-team">{esc(market_pick_team)}</span> '
+                             f'{fmt_pct(g["market_pick_prob"])}')
+    else:
+        market_pick_html = "unavailable"
 
-        pick_is_home = pick_team == g["home_name"]
-        if g.get("market_favors_home") is not None and g["market_favors_home"] != pick_is_home:
-            market_pick = g["home_name"] if g["market_favors_home"] else g["away_name"]
-            disagreement_html = (f'<div class="disagree">Note: the market actually favors '
-                                 f'{esc(market_pick)} instead of the model\'s pick.</div>')
+    edge_html = "unavailable"
+    if g.get("edge") is not None:
+        edge_pts = g["edge"] * 100
+        if abs(edge_pts) < 0.5:
+            edge_html = "~0 pts — model and market roughly agree"
+        elif g["edge"] > 0:
+            edge_html = f"+{edge_pts:.1f} pts — model is more confident than the market"
+        else:
+            edge_html = f"{edge_pts:.1f} pts — model is less confident than the market"
 
     status_badge = ""
     if g.get("status") == "final":
@@ -129,18 +116,12 @@ def render_game_card(game):
       </div>
 
       <div class="section">
-        <div class="section-title">Model vs. market, for the model's pick</div>
-        {render_market_row("Model probability", g.get('model_pick_prob'))}
-        {render_market_row("Market probability (de-vigged)", g.get('market_pick_prob'))}
-        <div class="edge">Edge: {edge_html}</div>
-        {disagreement_html}
-      </div>
-
-      <div class="section">
-        <div class="section-title">Raw reference odds</div>
+        <div class="section-title">Market pick (de-vigged)</div>
+        <div class="pick">{market_pick_html}</div>
         <div class="odds-line">{dk_line}</div>
         <div class="odds-line">Kalshi: {kalshi_html}</div>
         <div class="odds-line">Polymarket: {poly_html}</div>
+        <div class="edge">Edge: {edge_html}</div>
       </div>
 
       <div class="section">
@@ -246,9 +227,7 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None):
   .section-title {{ font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 3px; }}
   .pick {{ font-size: 1.05rem; }}
   .pick-team {{ font-weight: 700; }}
-  .market-row {{ display: flex; justify-content: space-between; font-size: 0.92rem; }}
   .edge {{ font-size: 0.85rem; color: var(--accent); margin-top: 4px; }}
-  .disagree {{ font-size: 0.82rem; color: var(--muted); margin-top: 4px; font-style: italic; }}
   .odds-line {{ font-size: 0.88rem; }}
   .why {{ font-size: 0.88rem; color: var(--text); line-height: 1.4; margin: 0; padding-left: 18px; }}
   .why li {{ margin-bottom: 3px; }}

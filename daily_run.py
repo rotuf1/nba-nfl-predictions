@@ -186,17 +186,8 @@ def avg_margin(conn, league, team_abbr, before_date_iso, limit=RECENT_FORM_GAMES
 
 
 def build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso,
-              season, home_rest_note, away_rest_note, home_rating, away_rating):
+              season, home_rest_note, away_rest_note):
     bullets = []
-
-    rating_gap = home_rating - away_rating
-    if abs(rating_gap) >= 1:
-        leader = home_name if rating_gap > 0 else away_name
-        bullets.append(
-            f"Elo rating (before today's home-field/rest/injury adjustments): "
-            f"{home_name} {home_rating:.0f}, {away_name} {away_rating:.0f} "
-            f"-- {leader} is ahead by {abs(rating_gap):.0f} points"
-        )
 
     for abbr, name, rest_note in ((home_abbr, home_name, home_rest_note),
                                    (away_abbr, away_name, away_rest_note)):
@@ -304,26 +295,34 @@ def process_league(league, conn, today_et, odds_key, warnings):
         kalshi_result = kalshi.get_game_market(league, today_et, home_abbr, away_abbr)
         poly_result = polymarket.get_game_market(league, today_et, home_name, away_name)
 
-        # Frame the model-vs-market comparison around whichever team the model actually
-        # picked, not always the home team -- "the market thinks the model's pick is more
-        # or less likely than the model does" is a much more readable statement than a
-        # home-team-relative number that doesn't say which side it's about.
+        # The model's own pick (not always the home team).
         pick_is_home = model_home_prob >= 0.5
         pick_team_name = home_name if pick_is_home else away_name
         model_pick_prob = model_home_prob if pick_is_home else 1 - model_home_prob
 
+        # The market's own favorite -- independently computed, so it can (rarely) name a
+        # different team than the model's pick; the two "pick" lines on the card make that
+        # visible on their own without a separate disagreement callout.
+        market_pick_team_name = None
         market_pick_prob = None
-        market_favors_home = None
+        market_prob_for_model_pick = None
         if market_true_home_prob is not None:
-            market_pick_prob = market_true_home_prob if pick_is_home else 1 - market_true_home_prob
             market_favors_home = market_true_home_prob >= 0.5
+            market_pick_team_name = home_name if market_favors_home else away_name
+            market_pick_prob = market_true_home_prob if market_favors_home else 1 - market_true_home_prob
+            market_prob_for_model_pick = (
+                market_true_home_prob if pick_is_home else 1 - market_true_home_prob
+            )
 
+        # Edge stays anchored to the model's own pick (comparing the model's and market's
+        # probability for the *same* team), regardless of which team is displayed as the
+        # market's favorite above.
         edge = None
-        if market_pick_prob is not None:
-            edge = model_pick_prob - market_pick_prob
+        if market_prob_for_model_pick is not None:
+            edge = model_pick_prob - market_prob_for_model_pick
 
         why = build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso,
-                         season, home_rest_note, away_rest_note, home_rating, away_rating)
+                         season, home_rest_note, away_rest_note)
 
         tipoff_str = "time TBD"
         if ev.get("date_utc"):
@@ -348,8 +347,8 @@ def process_league(league, conn, today_et, odds_key, warnings):
             "market_true_home_prob": market_true_home_prob,
             "pick_team_name": pick_team_name,
             "model_pick_prob": model_pick_prob,
+            "market_pick_team_name": market_pick_team_name,
             "market_pick_prob": market_pick_prob,
-            "market_favors_home": market_favors_home,
             "dk_home_odds": dk_home_odds, "dk_away_odds": dk_away_odds,
             "kalshi_home_prob": kalshi_result["home_prob"] if kalshi_result else None,
             "kalshi_away_prob": kalshi_result["away_prob"] if kalshi_result else None,

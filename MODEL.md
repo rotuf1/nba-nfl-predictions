@@ -121,17 +121,18 @@ Edge is framed around whichever team the model actually picked (`pick`), not alw
 team -- that reads much more directly as "does the market agree with the model's own pick":
 
 ```
-model_pick_prob   = model_prob_H if the model picked the home team, else (1 - model_prob_H)
-market_pick_prob  = true_market_prob_H if the model picked the home team, else (1 - true_market_prob_H)
-edge = model_pick_prob - market_pick_prob
+model_pick_prob          = model_prob_H if the model picked the home team, else (1 - model_prob_H)
+market_prob_for_that_pick = true_market_prob_H if the model picked the home team, else (1 - true_market_prob_H)
+edge = model_pick_prob - market_prob_for_that_pick
 ```
 
-A positive edge means the model is *more* bullish on its own pick than the (de-vigged) market
-is; negative means the model is *less* bullish on its own pick than the market is. If the
-market's own favorite (whichever side of `true_market_prob_H` is >= 50%) differs from the
-model's pick, the site calls that out explicitly as a disagreement, since edge alone doesn't
-surface that case. This is an observation about a gap between two estimates, not a betting
-signal — see the disclaimer on the site.
+A positive edge means the model is *more* confident in its own pick than the (de-vigged) market
+is; negative means the model is *less* confident in its own pick than the market is. The card
+shows the model's pick and the market's own favorite (whichever side of `true_market_prob_H` is
+>= 50%) as two separate lines, so if they ever name different teams that's visible directly —
+edge itself always stays anchored to the model's pick specifically, not the market's. This is an
+observation about a gap between two estimates, not a betting signal — see the disclaimer on the
+site.
 
 ## Data sources
 
