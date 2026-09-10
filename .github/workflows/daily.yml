@@ -1,0 +1,41 @@
+name: Daily predictions
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Targets 12:00am / 11:00am / 4:00pm America/New_York, year-round. GitHub Actions
+    # cron always runs in UTC and does not observe daylight saving time, so this is
+    # split into an EDT set (UTC-4, roughly March-October) and an EST set (UTC-5,
+    # roughly November-February) using calendar-month boundaries as an approximation --
+    # actual US DST transitions happen mid-month, so there are up to ~2 weeks a year
+    # (early/mid March, early November) where a run lands about an hour off from the
+    # intended local time. Not exact, but self-correcting every DST change and not
+    # worth the added complexity of day-precise overrides for a personal project.
+    - cron: '0 4,15,20 * 3,4,5,6,7,8,9,10 *'   # EDT: 12am/11am/4pm ET
+    - cron: '0 5,16,21 * 11,12,1,2 *'          # EST: 12am/11am/4pm ET
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run daily prediction script
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python daily_run.py
