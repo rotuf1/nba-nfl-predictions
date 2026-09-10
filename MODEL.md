@@ -61,20 +61,47 @@ applied and this is logged.
 
 ## 3. Injury adjustment (applied only to today's prediction, same as rest)
 
-Using each league's ESPN injury report for the two teams in a game:
+Each **Out** or **Doubtful** player (from each league's ESPN injury report) is weighted by that
+specific player's own recent production, not counted the same as every other injury. This is
+computed in `src/player_value.py` / `player_out_penalty()` in `daily_run.py`:
 
-- **-6 Elo points** for each player listed **Out**, capped at **-18** per team.
-- **-3 Elo points** for each player listed **Doubtful**, capped at **-9** per team.
+**NBA** — [Hollinger Game Score](https://en.wikipedia.org/wiki/Game_score), a well-known public
+box-score formula (not invented for this project), from the player's per-game averages this
+season (or last season, until the new one has games in the books):
 
-This is a deliberately coarse, count-based heuristic — it does **not** attempt to weight players
-by importance (e.g. a bench player "Out" counts the same as a star), because doing that
-correctly requires a paid or proprietary player-value dataset. Treat the injury adjustment as a
-rough signal, and read the injury report itself (shown in each card's own "Injury report"
-section, separate from "Why") as the actual information — that section lists every player ESPN
-has flagged for either team under any status (Out, Doubtful, Questionable, etc.), not just the
-two statuses that move the number above. If the injury endpoint is unavailable for a team, that
-team's section says "unavailable" (never a guessed or blank list), and the adjustment for that
-team is skipped (treated as 0) and logged.
+```
+game_score = PTS + 0.4*FGM - 0.7*FGA - 0.4*(FTA-FTM) + 0.7*ORB + 0.3*DRB
+             + STL + 0.7*AST + 0.7*BLK - 0.4*PF - TOV
+elo_penalty = -max(game_score, 0) * 1.5        # NBA_VALUE_SCALE
+```
+
+**NFL** — there's no free, live, per-game, cross-position equivalent to Game Score. Real
+Pro-Football-Reference Approximate Value is genuinely complex (separate formulas per position
+group, uses team context, computed from full-season data) and can't be faithfully replicated
+here. Instead, **skill positions only** (QB, RB, FB, WR, TE) get a production score built from
+standard half-PPR fantasy-football scoring conventions — an established, publicly documented
+scoring convention, just repurposed here as a value proxy, not invented for this project:
+
+```
+score = pass_yds*0.04 + pass_td*4 - pass_int*2
+      + rush_yds*0.1  + rush_td*6
+      + rec_yds*0.1   + rec_td*6  + rec*0.5      (each line only if that stat category exists)
+elo_penalty = -max(score, 0) * 1.5              # NFL_VALUE_SCALE
+```
+
+**Fallback**: if a player's stats can't be fetched (missing athlete id, ESPN request failure),
+or — NFL only — the player's position isn't one of the skill positions above (line, defense,
+specialists have no comparably clean free per-game production stat), a flat penalty is used
+instead: **-10** (NBA) / **-6** (NFL). A **Doubtful** player's penalty (computed the same way) is
+multiplied by **0.5** before being added in. The total per team is capped at **-70** (NBA) /
+**-50** (NFL) so a cluster of injuries can't blow past a sane bound.
+
+Read the injury report itself (shown in each card's own "Injury report" section, separate from
+"Why") as the actual information — that section lists every player ESPN has flagged for either
+team under any status (Out, Doubtful, Questionable, etc.), not just the two statuses that move
+the number above. If the injury endpoint is unavailable for a team, that team's section says
+"unavailable" (never a guessed or blank list), and the adjustment for that team is skipped
+(treated as 0) and logged.
 
 ## 4. Final model probability for today's game
 

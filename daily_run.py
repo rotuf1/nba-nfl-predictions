@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
 
-from src import elo, espn, kalshi, odds_api, polymarket, seasons, site
+from src import elo, espn, kalshi, odds_api, player_value, polymarket, seasons, site
 
 ET = ZoneInfo("America/New_York")
 DB_PATH = "team_ratings.db"
@@ -30,10 +30,21 @@ REST_EXTRA_NFL = 15
 REST_EXTRA_NFL_MIN_DAYS = 10
 REST_EXTRA_NFL_MAX_DAYS = 21  # beyond this it's an offseason gap (e.g. season opener), not a bye week
 
-INJURY_OUT_PENALTY = -6
-INJURY_OUT_CAP = -18
-INJURY_DOUBTFUL_PENALTY = -3
-INJURY_DOUBTFUL_CAP = -9
+# Injury adjustment: each Out/Doubtful player is weighted by their own recent-season
+# production (see src/player_value.py + MODEL.md) rather than counted flatly. VALUE_SCALE
+# converts a player's value score into Elo points; FALLBACK_OUT applies when a value
+# score can't be computed (stats fetch failed, or -- NFL only -- a non-skill position
+# with no clean free per-game production stat). Doubtful counts at DOUBTFUL_WEIGHT of
+# the same player's Out-equivalent penalty. CAP bounds the total per team.
+NBA_VALUE_SCALE = 1.5
+NBA_INJURY_FALLBACK_OUT = -10
+NBA_INJURY_CAP = -70
+
+NFL_VALUE_SCALE = 1.5
+NFL_INJURY_FALLBACK_OUT = -6
+NFL_INJURY_CAP = -50
+
+DOUBTFUL_WEIGHT = 0.5
 
 RECENT_FORM_GAMES = 10
 SCOREBOARD_RETRY_ATTEMPTS = 3
@@ -113,23 +124,51 @@ def rest_adjustment(league, conn, team_abbr, game_date_iso):
     return 0.0, None
 
 
+def player_out_penalty(league, athlete_id, position):
+    """
+    Elo points lost (a negative number) if this specific player is Out, based on their
+    own recent-season production -- not a flat per-player count. Falls back to a flat
+    per-league penalty if a value score can't be computed (stats fetch failed, missing
+    athlete id, or -- NFL only -- a non-skill position). Never raises.
+    """
+    stats = espn.get_athlete_season_stats(league, athlete_id) if athlete_id else None
+    if league == "NBA":
+        score = player_value.nba_game_score(stats)
+        if score is None:
+            return NBA_INJURY_FALLBACK_OUT
+        return -max(score, 0.0) * NBA_VALUE_SCALE
+    score = player_value.nfl_production_score(stats, position)
+    if score is None:
+        return NFL_INJURY_FALLBACK_OUT
+    return -max(score, 0.0) * NFL_VALUE_SCALE
+
+
 def injury_adjustment(league, espn_team_id):
     """
     Returns (adjustment_points, injuries, ok_bool).
     `injuries` is every reported injury (any status) as {name, position, status}, for
-    display on the card. The numeric adjustment itself only counts Out/Doubtful, per
-    MODEL.md -- other statuses (e.g. Questionable) are shown but don't move the number.
+    display on the card. The numeric adjustment only counts Out/Doubtful (Doubtful at
+    DOUBTFUL_WEIGHT), each weighted by that specific player's own production -- see
+    player_out_penalty() and MODEL.md section 3.
     """
     if espn_team_id is None:
         return 0.0, [], False
     injuries = espn.get_team_injuries(league, espn_team_id)
     if injuries is None:
         return 0.0, [], False
-    out_count = sum(1 for i in injuries if (i.get("status") or "").lower() == "out")
-    doubtful_count = sum(1 for i in injuries if (i.get("status") or "").lower() == "doubtful")
-    adj = max(INJURY_OUT_PENALTY * out_count, INJURY_OUT_CAP)
-    adj += max(INJURY_DOUBTFUL_PENALTY * doubtful_count, INJURY_DOUBTFUL_CAP)
-    return adj, injuries, True
+
+    cap = NBA_INJURY_CAP if league == "NBA" else NFL_INJURY_CAP
+    total = 0.0
+    for i in injuries:
+        status = (i.get("status") or "").lower()
+        if status not in ("out", "doubtful"):
+            continue
+        penalty = player_out_penalty(league, i.get("athlete_id"), i.get("position"))
+        if status == "doubtful":
+            penalty *= DOUBTFUL_WEIGHT
+        total += penalty
+    total = max(total, cap)
+    return total, injuries, True
 
 
 def form_record(conn, league, team_abbr, before_date_iso, limit=RECENT_FORM_GAMES):
