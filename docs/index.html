@@ -77,13 +77,17 @@
   .edge { font-size: 0.85rem; color: var(--accent); margin-top: 4px; }
   .odds-line { font-size: 0.88rem; }
   .why { font-size: 0.88rem; color: var(--text); line-height: 1.4; }
+  .injury-group { font-size: 0.85rem; margin-top: 4px; }
+  .injury-team { font-weight: 600; margin-right: 4px; }
+  .injury-group ul { margin: 2px 0 6px 0; padding-left: 18px; }
+  .injury-group li { line-height: 1.35; }
   footer { margin-top: 2em; color: var(--muted); font-size: 0.8rem; text-align: center; }
 </style>
 </head>
 <body>
   <div class="wrap">
     <h1>NBA &amp; NFL Predictions</h1>
-    <div class="updated">Predictions last updated 2026-09-10 6:08 PM ET</div>
+    <div class="updated">Predictions last updated 2026-09-10 6:14 PM ET</div>
     <div class="disclaimer">This site presents the output of a statistical model (team Elo ratings plus documented adjustments) alongside public betting-market prices, purely for informational and entertainment purposes. It is not betting advice, and nothing here is a recommendation to wager on anything. See MODEL.md in the repo for the exact methodology.</div>
     
     <h2>NFL</h2><div class="cards">
@@ -120,6 +124,12 @@
       <div class="section">
         <div class="section-title">Why</div>
         <div class="why">Los Angeles Rams are 6-4 in their last 10. San Francisco 49ers are 7-3 in their last 10. Los Angeles Rams have won 4 of the last 5 meetings with San Francisco 49ers.</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Injury report</div>
+        <div class="injury-group"><span class="injury-team">San Francisco 49ers</span>none reported</div>
+        <div class="injury-group"><span class="injury-team">Los Angeles Rams</span>none reported</div>
       </div>
     </div></div>
     <footer>Model methodology: see MODEL.md in the source repo. Data: ESPN, the-odds-api.com (DraftKings), Kalshi, Polymarket.</footer>
