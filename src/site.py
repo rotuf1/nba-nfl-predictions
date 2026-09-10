@@ -44,6 +44,20 @@ def render_market_row(label, prob, extra=""):
       </div>"""
 
 
+def render_injury_group(team_name, injuries, ok):
+    if not ok:
+        body = "unavailable"
+    elif not injuries:
+        body = "none reported"
+    else:
+        items = "".join(
+            f"<li>{esc(i['name'])} ({esc(i.get('position') or '?')}) — {esc(i.get('status') or 'unknown')}</li>"
+            for i in injuries
+        )
+        body = f"<ul>{items}</ul>"
+    return f'<div class="injury-group"><span class="injury-team">{esc(team_name)}</span>{body}</div>'
+
+
 def render_game_card(game):
     """
     game: {
@@ -118,6 +132,12 @@ def render_game_card(game):
       <div class="section">
         <div class="section-title">Why</div>
         <div class="why">{esc(g.get('why', ''))}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Injury report</div>
+        {render_injury_group(g['away_name'], g.get('away_injuries') or [], g.get('away_injuries_ok', False))}
+        {render_injury_group(g['home_name'], g.get('home_injuries') or [], g.get('home_injuries_ok', False))}
       </div>
     </div>"""
 
@@ -216,6 +236,10 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None):
   .edge {{ font-size: 0.85rem; color: var(--accent); margin-top: 4px; }}
   .odds-line {{ font-size: 0.88rem; }}
   .why {{ font-size: 0.88rem; color: var(--text); line-height: 1.4; }}
+  .injury-group {{ font-size: 0.85rem; margin-top: 4px; }}
+  .injury-team {{ font-weight: 600; margin-right: 4px; }}
+  .injury-group ul {{ margin: 2px 0 6px 0; padding-left: 18px; }}
+  .injury-group li {{ line-height: 1.35; }}
   footer {{ margin-top: 2em; color: var(--muted); font-size: 0.8rem; text-align: center; }}
 </style>
 </head>

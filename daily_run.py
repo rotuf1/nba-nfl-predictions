@@ -114,7 +114,12 @@ def rest_adjustment(league, conn, team_abbr, game_date_iso):
 
 
 def injury_adjustment(league, espn_team_id):
-    """Returns (adjustment_points, [injury description strings], ok_bool)."""
+    """
+    Returns (adjustment_points, injuries, ok_bool).
+    `injuries` is every reported injury (any status) as {name, position, status}, for
+    display on the card. The numeric adjustment itself only counts Out/Doubtful, per
+    MODEL.md -- other statuses (e.g. Questionable) are shown but don't move the number.
+    """
     if espn_team_id is None:
         return 0.0, [], False
     injuries = espn.get_team_injuries(league, espn_team_id)
@@ -124,9 +129,7 @@ def injury_adjustment(league, espn_team_id):
     doubtful_count = sum(1 for i in injuries if (i.get("status") or "").lower() == "doubtful")
     adj = max(INJURY_OUT_PENALTY * out_count, INJURY_OUT_CAP)
     adj += max(INJURY_DOUBTFUL_PENALTY * doubtful_count, INJURY_DOUBTFUL_CAP)
-    descriptions = [f"{i['name']} ({i.get('position') or '?'}, {i.get('status') or 'unknown'})"
-                    for i in injuries if (i.get("status") or "").lower() in ("out", "doubtful")]
-    return adj, descriptions, True
+    return adj, injuries, True
 
 
 def form_record(conn, league, team_abbr, before_date_iso, limit=RECENT_FORM_GAMES):
@@ -146,7 +149,7 @@ def form_record(conn, league, team_abbr, before_date_iso, limit=RECENT_FORM_GAME
 
 
 def build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso,
-              season, home_rest_note, away_rest_note, home_injuries, away_injuries):
+              season, home_rest_note, away_rest_note):
     parts = []
 
     hw, hl, hn = form_record(conn, league, home_abbr, date_iso)
@@ -177,11 +180,6 @@ def build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso
         parts.append(f"{home_name} are {home_rest_note}")
     if away_rest_note:
         parts.append(f"{away_name} are {away_rest_note}")
-
-    if home_injuries:
-        parts.append(f"{home_name} injury notes: " + ", ".join(home_injuries))
-    if away_injuries:
-        parts.append(f"{away_name} injury notes: " + ", ".join(away_injuries))
 
     if not parts:
         return "No notable recent-form, rest, or injury signals found for this matchup."
@@ -226,8 +224,8 @@ def process_league(league, conn, today_et, odds_key, warnings):
         home_rest_adj, home_rest_note = rest_adjustment(league, conn, home_abbr, date_iso)
         away_rest_adj, away_rest_note = rest_adjustment(league, conn, away_abbr, date_iso)
 
-        home_inj_adj, home_inj_desc, home_inj_ok = injury_adjustment(league, team_ids.get(home_abbr))
-        away_inj_adj, away_inj_desc, away_inj_ok = injury_adjustment(league, team_ids.get(away_abbr))
+        home_inj_adj, home_injuries, home_inj_ok = injury_adjustment(league, team_ids.get(home_abbr))
+        away_inj_adj, away_injuries, away_inj_ok = injury_adjustment(league, team_ids.get(away_abbr))
         if not (home_inj_ok and away_inj_ok):
             warnings.append(f"{league} {away_abbr}@{home_abbr}: injury report unavailable for "
                              f"one or both teams; injury adjustment skipped where missing.")
@@ -255,7 +253,7 @@ def process_league(league, conn, today_et, odds_key, warnings):
             edge = model_home_prob - market_true_home_prob
 
         why = build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso,
-                         season, home_rest_note, away_rest_note, home_inj_desc, away_inj_desc)
+                         season, home_rest_note, away_rest_note)
 
         tipoff_str = "time TBD"
         if ev.get("date_utc"):
@@ -285,6 +283,8 @@ def process_league(league, conn, today_et, odds_key, warnings):
             "polymarket_away_prob": poly_result["away_prob"] if poly_result else None,
             "edge": edge,
             "why": why,
+            "home_injuries": home_injuries, "home_injuries_ok": home_inj_ok,
+            "away_injuries": away_injuries, "away_injuries_ok": away_inj_ok,
         })
 
     return games

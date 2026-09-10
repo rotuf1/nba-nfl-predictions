@@ -69,9 +69,12 @@ Using each league's ESPN injury report for the two teams in a game:
 This is a deliberately coarse, count-based heuristic — it does **not** attempt to weight players
 by importance (e.g. a bench player "Out" counts the same as a star), because doing that
 correctly requires a paid or proprietary player-value dataset. Treat the injury adjustment as a
-rough signal, and read the injury list itself (shown in each card's "why") as the actual
-information. If the injury endpoint is unavailable for a game, the adjustment is skipped (treated
-as 0) and this is logged — it is never guessed.
+rough signal, and read the injury report itself (shown in each card's own "Injury report"
+section, separate from "Why") as the actual information — that section lists every player ESPN
+has flagged for either team under any status (Out, Doubtful, Questionable, etc.), not just the
+two statuses that move the number above. If the injury endpoint is unavailable for a team, that
+team's section says "unavailable" (never a guessed or blank list), and the adjustment for that
+team is skipped (treated as 0) and logged.
 
 ## 4. Final model probability for today's game
 
