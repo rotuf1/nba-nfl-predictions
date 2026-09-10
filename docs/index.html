@@ -73,9 +73,7 @@
   .section-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 3px; }
   .pick { font-size: 1.05rem; }
   .pick-team { font-weight: 700; }
-  .market-row { display: flex; justify-content: space-between; font-size: 0.92rem; }
   .edge { font-size: 0.85rem; color: var(--accent); margin-top: 4px; }
-  .disagree { font-size: 0.82rem; color: var(--muted); margin-top: 4px; font-style: italic; }
   .odds-line { font-size: 0.88rem; }
   .why { font-size: 0.88rem; color: var(--text); line-height: 1.4; margin: 0; padding-left: 18px; }
   .why li { margin-bottom: 3px; }
@@ -89,7 +87,7 @@
 <body>
   <div class="wrap">
     <h1>NBA &amp; NFL Predictions</h1>
-    <div class="updated">Predictions last updated 2026-09-10 6:23 PM ET</div>
+    <div class="updated">Predictions last updated 2026-09-10 6:30 PM ET</div>
     <div class="disclaimer">This site presents the output of a statistical model (team Elo ratings plus documented adjustments) alongside public betting-market prices, purely for informational and entertainment purposes. It is not betting advice, and nothing here is a recommendation to wager on anything. See MODEL.md in the repo for the exact methodology.</div>
     
     <h2>NFL</h2><div class="cards">
@@ -102,37 +100,21 @@
 
       <div class="section">
         <div class="section-title">Model pick</div>
-        <div class="pick">Model picks <span class="pick-team">Los Angeles Rams</span> to win, 60.0% probability</div>
+        <div class="pick"><span class="pick-team">Los Angeles Rams</span> 60.0%</div>
       </div>
 
       <div class="section">
-        <div class="section-title">Model vs. market, for the model's pick</div>
-        
-      <div class="market-row">
-        <span class="market-label">Model probability</span>
-        <span class="market-value">60.0%</span>
-        
-      </div>
-        
-      <div class="market-row">
-        <span class="market-label">Market probability (de-vigged)</span>
-        <span class="market-value">64.5%</span>
-        
-      </div>
-        <div class="edge">Edge: -4.4 pts — the model is <em>less</em> bullish on Los Angeles Rams than the (de-vigged) market is.</div>
-        
-      </div>
-
-      <div class="section">
-        <div class="section-title">Raw reference odds</div>
+        <div class="section-title">Market pick (de-vigged)</div>
+        <div class="pick"><span class="pick-team">Los Angeles Rams</span> 64.5%</div>
         <div class="odds-line">DK: SF +170 / LAR -205</div>
         <div class="odds-line">Kalshi: SF 35.5% / LAR 64.5%</div>
         <div class="odds-line">Polymarket: SF 35.5% / LAR 64.5%</div>
+        <div class="edge">Edge: -4.4 pts — model is less confident than the market</div>
       </div>
 
       <div class="section">
         <div class="section-title">Why</div>
-        <ul class="why"><li>Elo rating (before today&#x27;s home-field/rest/injury adjustments): Los Angeles Rams 1584, San Francisco 49ers 1562 -- Los Angeles Rams is ahead by 23 points</li><li>Los Angeles Rams are 6-4 over their last 10 games, outscoring opponents by 7.4 points/game on average</li><li>San Francisco 49ers are 7-3 over their last 10 games, outscoring opponents by 2.9 points/game on average</li><li>Los Angeles Rams have won 4 of the last 5 meetings with San Francisco 49ers</li></ul>
+        <ul class="why"><li>Los Angeles Rams are 6-4 over their last 10 games, outscoring opponents by 7.4 points/game on average</li><li>San Francisco 49ers are 7-3 over their last 10 games, outscoring opponents by 2.9 points/game on average</li><li>Los Angeles Rams have won 4 of the last 5 meetings with San Francisco 49ers</li></ul>
       </div>
 
       <div class="section">
