@@ -442,10 +442,10 @@ def main():
     log.info("Wrote %s with %d NFL and %d NBA game(s).",
               os.path.join(DOCS_DIR, "index.html"), len(nfl_games), len(nba_games))
 
-    git("add", "docs/index.html")
+    git("add", "docs/index.html", DB_PATH)
     diff = subprocess.run(["git", "diff", "--cached", "--quiet"])
     if diff.returncode == 0:
-        log.info("No change to docs/index.html since last commit -- nothing to commit.")
+        log.info("No change to docs/index.html or %s since last commit -- nothing to commit.", DB_PATH)
         sys.exit(0)
 
     git("commit", "-m", f"Predictions for {today_et.isoformat()}")

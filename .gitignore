@@ -3,7 +3,6 @@ venv/
 .tools/
 __pycache__/
 *.pyc
-team_ratings.db
 logs/
 *.log
 .DS_Store
