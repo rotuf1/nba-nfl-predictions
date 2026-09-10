@@ -77,6 +77,8 @@ def replay_recent_results(conn, league, today_et, lookback_days=4):
             ok_overall = False
             continue
         for ev in espn.parse_events(league, data):
+            if ev.get("season_type") == 1:
+                continue  # preseason: rosters/results aren't representative, keep out of Elo
             if ev["state"] != "post" or ev["home_score"] is None or ev["away_score"] is None:
                 continue
             game_id = f"{league}_{day.isoformat()}_{ev['away_abbr']}_{ev['home_abbr']}"
@@ -201,7 +203,7 @@ def process_league(league, conn, today_et, odds_key, warnings):
                          f"could not be checked.")
         return None  # unknown, not "zero"
 
-    events = espn.parse_events(league, today_data)
+    events = [ev for ev in espn.parse_events(league, today_data) if ev.get("season_type") != 1]
     team_ids = espn.get_scoreboard_team_ids(league, today_data)
 
     if not events:

@@ -49,6 +49,8 @@ def parse_events(league, scoreboard_json):
             home = next(c for c in competitors if c["homeAway"] == "home")
             away = next(c for c in competitors if c["homeAway"] == "away")
             status = comp.get("status", {}).get("type", {}).get("state", "pre")
+            # ESPN season.type: 1=preseason, 2=regular season, 3=postseason.
+            season_type = (ev.get("season") or {}).get("type")
             out.append({
                 "event_id": ev["id"],
                 "date_utc": comp.get("date"),
@@ -59,6 +61,7 @@ def parse_events(league, scoreboard_json):
                 "home_score": int(home["score"]) if home.get("score") not in (None, "") else None,
                 "away_score": int(away["score"]) if away.get("score") not in (None, "") else None,
                 "state": status,  # 'pre', 'in', 'post'
+                "season_type": season_type,  # 1=preseason, 2=regular, 3=postseason
             })
         except (KeyError, IndexError, StopIteration, TypeError, ValueError) as e:
             log.error("Failed to parse ESPN event for %s: %s (%s)", league, e, ev.get("id"))

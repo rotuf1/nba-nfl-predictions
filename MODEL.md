@@ -132,6 +132,9 @@ estimates, not a betting signal — see the disclaimer on the site.
 
 ## Known limitations
 
+- Preseason games (ESPN `season.type == 1`) are excluded entirely -- not replayed into Elo,
+  not shown on the site -- since rosters and results aren't representative of the real season.
+  A day with only preseason games is treated as an off-day for that league.
 - No margin-of-victory weighting in Elo.
 - Injury adjustment is a blunt per-player-status count, not player-value-weighted.
 - Playoff games are replayed into Elo the same as regular-season games (no separate weighting).
