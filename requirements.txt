@@ -1,0 +1,6 @@
+requests
+urllib3<2
+pandas
+numpy
+python-dotenv
+lxml

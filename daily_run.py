@@ -1,0 +1,348 @@
+#!/usr/bin/env python3
+"""
+The daily script. Meant to run once (or twice, see README) a day via cron.
+
+Core rule: if there are zero NBA games and zero NFL games today, this does nothing
+at all -- no /docs change, no commit, no push, no output beyond a log line. See
+handle-zero-games logic in main().
+"""
+import logging
+import os
+import subprocess
+import sys
+import time
+from datetime import datetime, timedelta
+
+from dotenv import load_dotenv
+from zoneinfo import ZoneInfo
+
+from src import elo, espn, kalshi, odds_api, polymarket, seasons, site
+
+ET = ZoneInfo("America/New_York")
+DB_PATH = "team_ratings.db"
+DOCS_DIR = "docs"
+LOG_DIR = "logs"
+
+REST_BACK_TO_BACK_NBA = -25
+REST_SHORT_WEEK_NFL = -25
+REST_SHORT_WEEK_NFL_MAX_DAYS = 5
+REST_EXTRA_NFL = 15
+REST_EXTRA_NFL_MIN_DAYS = 10
+REST_EXTRA_NFL_MAX_DAYS = 21  # beyond this it's an offseason gap (e.g. season opener), not a bye week
+
+INJURY_OUT_PENALTY = -6
+INJURY_OUT_CAP = -18
+INJURY_DOUBTFUL_PENALTY = -3
+INJURY_DOUBTFUL_CAP = -9
+
+RECENT_FORM_GAMES = 10
+SCOREBOARD_RETRY_ATTEMPTS = 3
+SCOREBOARD_RETRY_DELAY_SECONDS = 5
+
+log = logging.getLogger("daily_run")
+
+
+def setup_logging():
+    os.makedirs(LOG_DIR, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
+
+
+def fetch_schedule_with_retry(league, date_str):
+    for attempt in range(1, SCOREBOARD_RETRY_ATTEMPTS + 1):
+        data = espn.get_scoreboard(league, date_str)
+        if data is not None:
+            return data
+        log.warning("ESPN scoreboard fetch failed for %s %s (attempt %d/%d)",
+                    league, date_str, attempt, SCOREBOARD_RETRY_ATTEMPTS)
+        if attempt < SCOREBOARD_RETRY_ATTEMPTS:
+            time.sleep(SCOREBOARD_RETRY_DELAY_SECONDS)
+    return None
+
+
+def replay_recent_results(conn, league, today_et, lookback_days=4):
+    """Pull final scores from the last few days (idempotent) so ratings are current
+    before predicting today's games. Returns False if any day's fetch outright failed
+    (caller should treat this league's data as untrustworthy today), True otherwise."""
+    ok_overall = True
+    applied = 0
+    for d in range(lookback_days, -1, -1):  # oldest to newest, includes today
+        day = today_et - timedelta(days=d)
+        data = fetch_schedule_with_retry(league, day.strftime("%Y%m%d"))
+        if data is None:
+            log.error("Could not fetch %s scoreboard for %s after retries", league, day)
+            ok_overall = False
+            continue
+        for ev in espn.parse_events(league, data):
+            if ev["state"] != "post" or ev["home_score"] is None or ev["away_score"] is None:
+                continue
+            game_id = f"{league}_{day.isoformat()}_{ev['away_abbr']}_{ev['home_abbr']}"
+            season = str(seasons.season_for(league, day))
+            applied_this = elo.apply_game(
+                conn, league, game_id, season=season, date=day.isoformat(),
+                home_team=ev["home_abbr"], away_team=ev["away_abbr"],
+                home_score=ev["home_score"], away_score=ev["away_score"],
+                home_name=ev["home_name"], away_name=ev["away_name"],
+            )
+            if applied_this:
+                applied += 1
+    if applied:
+        log.info("Replayed %d newly completed %s game(s) into Elo", applied, league)
+    return ok_overall
+
+
+def rest_adjustment(league, conn, team_abbr, game_date_iso):
+    """Returns (adjustment_points, note_str_or_None)."""
+    last_date = elo.last_game_date(conn, league, team_abbr, before_date=game_date_iso)
+    if not last_date:
+        return 0.0, None
+    days_rest = (datetime.fromisoformat(game_date_iso).date()
+                 - datetime.fromisoformat(last_date).date()).days
+    if league == "NBA" and days_rest <= 1:
+        return REST_BACK_TO_BACK_NBA, "on a back-to-back (0 days rest)"
+    if league == "NFL":
+        if days_rest <= REST_SHORT_WEEK_NFL_MAX_DAYS:
+            return REST_SHORT_WEEK_NFL, f"on a short week ({days_rest} days rest)"
+        if REST_EXTRA_NFL_MIN_DAYS <= days_rest <= REST_EXTRA_NFL_MAX_DAYS:
+            return REST_EXTRA_NFL, f"coming off extra rest ({days_rest} days)"
+    return 0.0, None
+
+
+def injury_adjustment(league, espn_team_id):
+    """Returns (adjustment_points, [injury description strings], ok_bool)."""
+    if espn_team_id is None:
+        return 0.0, [], False
+    injuries = espn.get_team_injuries(league, espn_team_id)
+    if injuries is None:
+        return 0.0, [], False
+    out_count = sum(1 for i in injuries if (i.get("status") or "").lower() == "out")
+    doubtful_count = sum(1 for i in injuries if (i.get("status") or "").lower() == "doubtful")
+    adj = max(INJURY_OUT_PENALTY * out_count, INJURY_OUT_CAP)
+    adj += max(INJURY_DOUBTFUL_PENALTY * doubtful_count, INJURY_DOUBTFUL_CAP)
+    descriptions = [f"{i['name']} ({i.get('position') or '?'}, {i.get('status') or 'unknown'})"
+                    for i in injuries if (i.get("status") or "").lower() in ("out", "doubtful")]
+    return adj, descriptions, True
+
+
+def form_record(conn, league, team_abbr, before_date_iso, limit=RECENT_FORM_GAMES):
+    games = elo.recent_games(conn, league, team_abbr, before_date_iso, limit=limit)
+    wins = losses = 0
+    for date_, home, away, hscore, ascore in games:
+        is_home = home == team_abbr
+        team_score = hscore if is_home else ascore
+        opp_score = ascore if is_home else hscore
+        if team_score is None or opp_score is None:
+            continue
+        if team_score > opp_score:
+            wins += 1
+        elif team_score < opp_score:
+            losses += 1
+    return wins, losses, len(games)
+
+
+def build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso,
+              season, home_rest_note, away_rest_note, home_injuries, away_injuries):
+    parts = []
+
+    hw, hl, hn = form_record(conn, league, home_abbr, date_iso)
+    aw, al, an = form_record(conn, league, away_abbr, date_iso)
+    if hn:
+        parts.append(f"{home_name} are {hw}-{hl} in their last {hn}")
+    if an:
+        parts.append(f"{away_name} are {aw}-{al} in their last {an}")
+
+    h2h = elo.head_to_head(conn, league, home_abbr, away_abbr, date_iso, limit=5)
+    if h2h:
+        home_h2h_wins = 0
+        for _, h, a, hs, as_ in h2h:
+            winner = h if hs > as_ else a
+            if winner == home_abbr:
+                home_h2h_wins += 1
+        parts.append(f"{home_name} have won {home_h2h_wins} of the last {len(h2h)} "
+                     f"meetings with {away_name}")
+
+    hsw, hsl = elo.season_home_away_record(conn, league, home_abbr, season, True, date_iso)
+    asw, asl = elo.season_home_away_record(conn, league, away_abbr, season, False, date_iso)
+    if hsw + hsl > 0:
+        parts.append(f"{home_name} are {hsw}-{hsl} at home this season")
+    if asw + asl > 0:
+        parts.append(f"{away_name} are {asw}-{asl} on the road this season")
+
+    if home_rest_note:
+        parts.append(f"{home_name} are {home_rest_note}")
+    if away_rest_note:
+        parts.append(f"{away_name} are {away_rest_note}")
+
+    if home_injuries:
+        parts.append(f"{home_name} injury notes: " + ", ".join(home_injuries))
+    if away_injuries:
+        parts.append(f"{away_name} injury notes: " + ", ".join(away_injuries))
+
+    if not parts:
+        return "No notable recent-form, rest, or injury signals found for this matchup."
+    return ". ".join(parts) + "."
+
+
+def process_league(league, conn, today_et, odds_key, warnings):
+    date_str = today_et.strftime("%Y%m%d")
+    date_iso = today_et.isoformat()
+
+    schedule_ok = replay_recent_results(conn, league, today_et)
+    if not schedule_ok:
+        warnings.append(f"{league}: could not fully refresh recent results before predicting "
+                         f"(ESPN fetch issue) -- ratings may be slightly stale.")
+
+    today_data = fetch_schedule_with_retry(league, date_str)
+    if today_data is None:
+        warnings.append(f"{league}: ESPN schedule for today is unavailable; {league} games "
+                         f"could not be checked.")
+        return None  # unknown, not "zero"
+
+    events = espn.parse_events(league, today_data)
+    team_ids = espn.get_scoreboard_team_ids(league, today_data)
+
+    if not events:
+        return []  # confirmed zero games today
+
+    dk_odds = odds_api.get_draftkings_odds(league, odds_key)
+    if dk_odds is None:
+        warnings.append(f"{league}: DraftKings odds unavailable today (the-odds-api fetch failed "
+                         f"or no key set).")
+
+    season = str(seasons.season_for(league, today_et))
+    games = []
+    for ev in events:
+        home_abbr, away_abbr = ev["home_abbr"], ev["away_abbr"]
+        home_name, away_name = ev["home_name"], ev["away_name"]
+
+        home_rating = elo.get_rating(conn, league, home_abbr, home_name)
+        away_rating = elo.get_rating(conn, league, away_abbr, away_name)
+
+        home_rest_adj, home_rest_note = rest_adjustment(league, conn, home_abbr, date_iso)
+        away_rest_adj, away_rest_note = rest_adjustment(league, conn, away_abbr, date_iso)
+
+        home_inj_adj, home_inj_desc, home_inj_ok = injury_adjustment(league, team_ids.get(home_abbr))
+        away_inj_adj, away_inj_desc, away_inj_ok = injury_adjustment(league, team_ids.get(away_abbr))
+        if not (home_inj_ok and away_inj_ok):
+            warnings.append(f"{league} {away_abbr}@{home_abbr}: injury report unavailable for "
+                             f"one or both teams; injury adjustment skipped where missing.")
+
+        eff_home = home_rating + home_rest_adj + home_inj_adj
+        eff_away = away_rating + away_rest_adj + away_inj_adj
+        model_home_prob = elo.expected_score(eff_home + elo.HOME_ADV[league], eff_away)
+
+        dk_home_odds = dk_away_odds = None
+        market_true_home_prob = None
+        if dk_odds:
+            match = odds_api.match_game(dk_odds, home_name, away_name)
+            if match:
+                dk_home_odds, dk_away_odds = match["home_odds"], match["away_odds"]
+                if dk_home_odds is not None and dk_away_odds is not None:
+                    ih = odds_api.american_to_implied_prob(dk_home_odds)
+                    ia = odds_api.american_to_implied_prob(dk_away_odds)
+                    market_true_home_prob, _ = odds_api.devig(ih, ia)
+
+        kalshi_result = kalshi.get_game_market(league, today_et, home_abbr, away_abbr)
+        poly_result = polymarket.get_game_market(league, today_et, home_name, away_name)
+
+        edge = None
+        if market_true_home_prob is not None:
+            edge = model_home_prob - market_true_home_prob
+
+        why = build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso,
+                         season, home_rest_note, away_rest_note, home_inj_desc, away_inj_desc)
+
+        tipoff_str = "time TBD"
+        if ev.get("date_utc"):
+            try:
+                dt_utc = datetime.fromisoformat(ev["date_utc"].replace("Z", "+00:00"))
+                tipoff_str = dt_utc.astimezone(ET).strftime("%-I:%M %p")
+            except ValueError:
+                pass
+
+        final_score = None
+        if ev["state"] == "post" and ev["home_score"] is not None:
+            final_score = f"{away_abbr} {ev['away_score']} - {home_abbr} {ev['home_score']}"
+
+        games.append({
+            "league": league,
+            "tipoff_et_str": tipoff_str,
+            "away_abbr": away_abbr, "away_name": away_name,
+            "home_abbr": home_abbr, "home_name": home_name,
+            "status": "final" if ev["state"] == "post" else "scheduled",
+            "final_score": final_score,
+            "model_home_prob": model_home_prob,
+            "market_true_home_prob": market_true_home_prob,
+            "dk_home_odds": dk_home_odds, "dk_away_odds": dk_away_odds,
+            "kalshi_home_prob": kalshi_result["home_prob"] if kalshi_result else None,
+            "kalshi_away_prob": kalshi_result["away_prob"] if kalshi_result else None,
+            "polymarket_home_prob": poly_result["home_prob"] if poly_result else None,
+            "polymarket_away_prob": poly_result["away_prob"] if poly_result else None,
+            "edge": edge,
+            "why": why,
+        })
+
+    return games
+
+
+def git(*args):
+    subprocess.run(["git", *args], check=True)
+
+
+def main():
+    setup_logging()
+    load_dotenv()
+    odds_key = os.environ.get("ODDS_API_KEY", "").strip()
+    if not odds_key:
+        log.warning("ODDS_API_KEY is not set -- DraftKings odds will be unavailable today.")
+
+    now_et = datetime.now(ET)
+    today_et = now_et.date()
+    log.info("Daily run starting for %s ET", today_et.isoformat())
+
+    conn = elo.connect(DB_PATH)
+    warnings = []
+
+    nfl_games = process_league("NFL", conn, today_et, odds_key, warnings)
+    nba_games = process_league("NBA", conn, today_et, odds_key, warnings)
+    conn.close()
+
+    if nfl_games is None or nba_games is None:
+        log.error("Could not confirm today's schedule for one or both leagues -- "
+                  "aborting without publishing (never guessing an off-day). "
+                  "Check the warnings above and re-run, or investigate ESPN's endpoints.")
+        sys.exit(1)
+
+    if not nfl_games and not nba_games:
+        log.info("No NBA or NFL games today. Off-day: doing nothing.")
+        sys.exit(0)
+
+    os.makedirs(DOCS_DIR, exist_ok=True)
+    updated_str = now_et.strftime("%Y-%m-%d %-I:%M %p")
+    html = site.render_page(nba_games, nfl_games, updated_str, warnings)
+    with open(os.path.join(DOCS_DIR, "index.html"), "w") as f:
+        f.write(html)
+    log.info("Wrote %s with %d NFL and %d NBA game(s).",
+              os.path.join(DOCS_DIR, "index.html"), len(nfl_games), len(nba_games))
+
+    git("add", "docs/index.html")
+    diff = subprocess.run(["git", "diff", "--cached", "--quiet"])
+    if diff.returncode == 0:
+        log.info("No change to docs/index.html since last commit -- nothing to commit.")
+        sys.exit(0)
+
+    git("commit", "-m", f"Predictions for {today_et.isoformat()}")
+    try:
+        git("push")
+        log.info("Pushed update for %s.", today_et.isoformat())
+    except subprocess.CalledProcessError:
+        log.error("git push failed -- commit was made locally but not pushed. "
+                  "Check network/auth and push manually.")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
