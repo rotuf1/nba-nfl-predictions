@@ -117,13 +117,21 @@ price, when a matching market exists for the game. When no matching market exist
 
 ## 6. Edge
 
+Edge is framed around whichever team the model actually picked (`pick`), not always the home
+team -- that reads much more directly as "does the market agree with the model's own pick":
+
 ```
-edge = model_prob_H - true_market_prob_H
+model_pick_prob   = model_prob_H if the model picked the home team, else (1 - model_prob_H)
+market_pick_prob  = true_market_prob_H if the model picked the home team, else (1 - true_market_prob_H)
+edge = model_pick_prob - market_pick_prob
 ```
 
-A positive edge means the model is more bullish on the home team than the (de-vigged) market;
-negative means the model is less bullish. This is an observation about a gap between two
-estimates, not a betting signal — see the disclaimer on the site.
+A positive edge means the model is *more* bullish on its own pick than the (de-vigged) market
+is; negative means the model is *less* bullish on its own pick than the market is. If the
+market's own favorite (whichever side of `true_market_prob_H` is >= 50%) differs from the
+model's pick, the site calls that out explicitly as a disagreement, since edge alone doesn't
+surface that case. This is an observation about a gap between two estimates, not a betting
+signal — see the disclaimer on the site.
 
 ## Data sources
 

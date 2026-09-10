@@ -148,16 +148,74 @@ def form_record(conn, league, team_abbr, before_date_iso, limit=RECENT_FORM_GAME
     return wins, losses, len(games)
 
 
-def build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso,
-              season, home_rest_note, away_rest_note):
-    parts = []
+def current_streak(conn, league, team_abbr, before_date_iso, limit=15):
+    """(streak_length, 'W'|'L') from the most recent completed games, or None if unknown."""
+    games = elo.recent_games(conn, league, team_abbr, before_date_iso, limit=limit)
+    results = []
+    for date_, home, away, hscore, ascore in games:
+        if hscore is None or ascore is None:
+            continue
+        is_home = home == team_abbr
+        team_score = hscore if is_home else ascore
+        opp_score = ascore if is_home else hscore
+        if team_score == opp_score:
+            break  # a tie breaks the streak-counting cleanly; stop rather than guess
+        results.append("W" if team_score > opp_score else "L")
+    if not results:
+        return None
+    streak_type = results[0]
+    count = 0
+    for r in results:
+        if r != streak_type:
+            break
+        count += 1
+    return count, streak_type
 
-    hw, hl, hn = form_record(conn, league, home_abbr, date_iso)
-    aw, al, an = form_record(conn, league, away_abbr, date_iso)
-    if hn:
-        parts.append(f"{home_name} are {hw}-{hl} in their last {hn}")
-    if an:
-        parts.append(f"{away_name} are {aw}-{al} in their last {an}")
+
+def avg_margin(conn, league, team_abbr, before_date_iso, limit=RECENT_FORM_GAMES):
+    """Average point/score margin (positive = outscoring opponents) over the last N games."""
+    games = elo.recent_games(conn, league, team_abbr, before_date_iso, limit=limit)
+    total = n = 0
+    for date_, home, away, hscore, ascore in games:
+        if hscore is None or ascore is None:
+            continue
+        is_home = home == team_abbr
+        total += (hscore - ascore) if is_home else (ascore - hscore)
+        n += 1
+    return (total / n) if n else None
+
+
+def build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso,
+              season, home_rest_note, away_rest_note, home_rating, away_rating):
+    bullets = []
+
+    rating_gap = home_rating - away_rating
+    if abs(rating_gap) >= 1:
+        leader = home_name if rating_gap > 0 else away_name
+        bullets.append(
+            f"Elo rating (before today's home-field/rest/injury adjustments): "
+            f"{home_name} {home_rating:.0f}, {away_name} {away_rating:.0f} "
+            f"-- {leader} is ahead by {abs(rating_gap):.0f} points"
+        )
+
+    for abbr, name, rest_note in ((home_abbr, home_name, home_rest_note),
+                                   (away_abbr, away_name, away_rest_note)):
+        w, l, n = form_record(conn, league, abbr, date_iso)
+        if not n:
+            continue
+        streak = current_streak(conn, league, abbr, date_iso)
+        margin = avg_margin(conn, league, abbr, date_iso)
+        streak_str = ""
+        if streak:
+            count, kind = streak
+            if count > 1:
+                streak_str = f", on a {count}-game {'winning' if kind == 'W' else 'losing'} streak"
+        margin_str = ""
+        if margin is not None:
+            direction = "outscoring" if margin >= 0 else "getting outscored by"
+            margin_str = f", {direction} opponents by {abs(margin):.1f} points/game on average"
+        rest_str = f"; {name} are {rest_note}" if rest_note else ""
+        bullets.append(f"{name} are {w}-{l} over their last {n} games{streak_str}{margin_str}{rest_str}")
 
     h2h = elo.head_to_head(conn, league, home_abbr, away_abbr, date_iso, limit=5)
     if h2h:
@@ -166,24 +224,22 @@ def build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso
             winner = h if hs > as_ else a
             if winner == home_abbr:
                 home_h2h_wins += 1
-        parts.append(f"{home_name} have won {home_h2h_wins} of the last {len(h2h)} "
-                     f"meetings with {away_name}")
+        bullets.append(f"{home_name} have won {home_h2h_wins} of the last {len(h2h)} "
+                        f"meetings with {away_name}")
+    else:
+        bullets.append(f"No recent head-to-head history found between {home_name} and {away_name}")
 
     hsw, hsl = elo.season_home_away_record(conn, league, home_abbr, season, True, date_iso)
     asw, asl = elo.season_home_away_record(conn, league, away_abbr, season, False, date_iso)
     if hsw + hsl > 0:
-        parts.append(f"{home_name} are {hsw}-{hsl} at home this season")
+        bullets.append(f"{home_name} are {hsw}-{hsl} at home this season")
     if asw + asl > 0:
-        parts.append(f"{away_name} are {asw}-{asl} on the road this season")
+        bullets.append(f"{away_name} are {asw}-{asl} on the road this season")
 
-    if home_rest_note:
-        parts.append(f"{home_name} are {home_rest_note}")
-    if away_rest_note:
-        parts.append(f"{away_name} are {away_rest_note}")
-
-    if not parts:
-        return "No notable recent-form, rest, or injury signals found for this matchup."
-    return ". ".join(parts) + "."
+    if not bullets:
+        bullets = ["No notable recent-form, rest, streak, or head-to-head signals found for "
+                   "this matchup -- this is an early-season or data-sparse game."]
+    return bullets
 
 
 def process_league(league, conn, today_et, odds_key, warnings):
@@ -248,12 +304,26 @@ def process_league(league, conn, today_et, odds_key, warnings):
         kalshi_result = kalshi.get_game_market(league, today_et, home_abbr, away_abbr)
         poly_result = polymarket.get_game_market(league, today_et, home_name, away_name)
 
-        edge = None
+        # Frame the model-vs-market comparison around whichever team the model actually
+        # picked, not always the home team -- "the market thinks the model's pick is more
+        # or less likely than the model does" is a much more readable statement than a
+        # home-team-relative number that doesn't say which side it's about.
+        pick_is_home = model_home_prob >= 0.5
+        pick_team_name = home_name if pick_is_home else away_name
+        model_pick_prob = model_home_prob if pick_is_home else 1 - model_home_prob
+
+        market_pick_prob = None
+        market_favors_home = None
         if market_true_home_prob is not None:
-            edge = model_home_prob - market_true_home_prob
+            market_pick_prob = market_true_home_prob if pick_is_home else 1 - market_true_home_prob
+            market_favors_home = market_true_home_prob >= 0.5
+
+        edge = None
+        if market_pick_prob is not None:
+            edge = model_pick_prob - market_pick_prob
 
         why = build_why(conn, league, home_abbr, away_abbr, home_name, away_name, date_iso,
-                         season, home_rest_note, away_rest_note)
+                         season, home_rest_note, away_rest_note, home_rating, away_rating)
 
         tipoff_str = "time TBD"
         if ev.get("date_utc"):
@@ -276,6 +346,10 @@ def process_league(league, conn, today_et, odds_key, warnings):
             "final_score": final_score,
             "model_home_prob": model_home_prob,
             "market_true_home_prob": market_true_home_prob,
+            "pick_team_name": pick_team_name,
+            "model_pick_prob": model_pick_prob,
+            "market_pick_prob": market_pick_prob,
+            "market_favors_home": market_favors_home,
             "dk_home_odds": dk_home_odds, "dk_away_odds": dk_away_odds,
             "kalshi_home_prob": kalshi_result["home_prob"] if kalshi_result else None,
             "kalshi_away_prob": kalshi_result["away_prob"] if kalshi_result else None,

@@ -28,13 +28,6 @@ def fmt_odds(o):
     return f"+{o}" if o > 0 else str(o)
 
 
-def fmt_edge(e):
-    if e is None:
-        return "unavailable"
-    sign = "+" if e >= 0 else ""
-    return f"{sign}{e * 100:.1f} pts"
-
-
 def render_market_row(label, prob, extra=""):
     return f"""
       <div class="market-row">
@@ -71,14 +64,33 @@ def render_game_card(game):
     }
     """
     g = game
-    if g["model_home_prob"] is not None:
-        if g["model_home_prob"] >= 0.5:
-            pick_team, pick_prob = g["home_name"], g["model_home_prob"]
-        else:
-            pick_team, pick_prob = g["away_name"], 1 - g["model_home_prob"]
-        pick_html = f'<span class="pick-team">{esc(pick_team)}</span> {fmt_pct(pick_prob)}'
+    pick_team = g.get("pick_team_name")
+    if pick_team is not None:
+        pick_html = (f'Model picks <span class="pick-team">{esc(pick_team)}</span> to win, '
+                     f'{fmt_pct(g["model_pick_prob"])} probability')
     else:
         pick_html = "unavailable"
+
+    edge_html = "Edge unavailable (no market line to compare against)."
+    disagreement_html = ""
+    if g.get("market_pick_prob") is not None and g.get("edge") is not None:
+        edge = g["edge"]
+        edge_pts = edge * 100
+        if abs(edge_pts) < 0.5:
+            edge_html = (f"~0 pts — the model and the market agree almost exactly on "
+                         f"{esc(pick_team)}.")
+        elif edge >= 0:
+            edge_html = (f"+{edge_pts:.1f} pts — the model is <em>more</em> bullish on "
+                         f"{esc(pick_team)} than the (de-vigged) market is.")
+        else:
+            edge_html = (f"{edge_pts:.1f} pts — the model is <em>less</em> bullish on "
+                         f"{esc(pick_team)} than the (de-vigged) market is.")
+
+        pick_is_home = pick_team == g["home_name"]
+        if g.get("market_favors_home") is not None and g["market_favors_home"] != pick_is_home:
+            market_pick = g["home_name"] if g["market_favors_home"] else g["away_name"]
+            disagreement_html = (f'<div class="disagree">Note: the market actually favors '
+                                 f'{esc(market_pick)} instead of the model\'s pick.</div>')
 
     status_badge = ""
     if g.get("status") == "final":
@@ -117,9 +129,11 @@ def render_game_card(game):
       </div>
 
       <div class="section">
-        <div class="section-title">Market (de-vigged, true probability)</div>
-        {render_market_row(g['home_name'] + " (home)", g.get('market_true_home_prob'))}
-        <div class="edge">Edge (model − market, home team): {fmt_edge(g.get('edge'))}</div>
+        <div class="section-title">Model vs. market, for the model's pick</div>
+        {render_market_row("Model probability", g.get('model_pick_prob'))}
+        {render_market_row("Market probability (de-vigged)", g.get('market_pick_prob'))}
+        <div class="edge">Edge: {edge_html}</div>
+        {disagreement_html}
       </div>
 
       <div class="section">
@@ -131,7 +145,7 @@ def render_game_card(game):
 
       <div class="section">
         <div class="section-title">Why</div>
-        <div class="why">{esc(g.get('why', ''))}</div>
+        <ul class="why">{"".join(f"<li>{esc(b)}</li>" for b in g.get('why') or [])}</ul>
       </div>
 
       <div class="section">
@@ -234,8 +248,10 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None):
   .pick-team {{ font-weight: 700; }}
   .market-row {{ display: flex; justify-content: space-between; font-size: 0.92rem; }}
   .edge {{ font-size: 0.85rem; color: var(--accent); margin-top: 4px; }}
+  .disagree {{ font-size: 0.82rem; color: var(--muted); margin-top: 4px; font-style: italic; }}
   .odds-line {{ font-size: 0.88rem; }}
-  .why {{ font-size: 0.88rem; color: var(--text); line-height: 1.4; }}
+  .why {{ font-size: 0.88rem; color: var(--text); line-height: 1.4; margin: 0; padding-left: 18px; }}
+  .why li {{ margin-bottom: 3px; }}
   .injury-group {{ font-size: 0.85rem; margin-top: 4px; }}
   .injury-team {{ font-weight: 600; margin-right: 4px; }}
   .injury-group ul {{ margin: 2px 0 6px 0; padding-left: 18px; }}
