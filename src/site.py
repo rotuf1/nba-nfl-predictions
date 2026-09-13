@@ -137,12 +137,34 @@ def render_game_card(game):
     </div>"""
 
 
-def render_page(nba_games, nfl_games, updated_et_str, warnings=None):
+def fmt_record(wins, losses):
+    total = wins + losses
+    pct = f" ({wins / total * 100:.1f}%)" if total else ""
+    return f"{wins}-{losses}{pct}"
+
+
+def render_record(record):
+    """record: {'overall': (wins, losses), 'NFL': (wins, losses), 'NBA': (wins, losses)}"""
+    if not record or record.get("overall", (0, 0)) == (0, 0):
+        return ""
+    parts = []
+    for label in ("NFL", "NBA"):
+        w, l = record.get(label, (0, 0))
+        if w + l:
+            parts.append(f"{label} {fmt_record(w, l)}")
+    overall_w, overall_l = record["overall"]
+    parts.append(f"Overall {fmt_record(overall_w, overall_l)}")
+    return (f'<div class="record"><span class="section-title">Model record '
+            f'(correct picks vs. incorrect, final games only)</span> {" · ".join(parts)}</div>')
+
+
+def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None):
     warnings = warnings or []
     warnings_html = ""
     if warnings:
         items = "".join(f"<li>{esc(w)}</li>" for w in warnings)
         warnings_html = f'<div class="warnings"><strong>Data notes:</strong><ul>{items}</ul></div>'
+    record_html = render_record(record)
 
     def section(title, games):
         if not games:
@@ -210,6 +232,15 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None):
     font-size: 0.85rem;
     margin-bottom: 1.5em;
   }}
+  .record {{
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    margin-bottom: 1.5em;
+  }}
+  .record .section-title {{ display: block; margin-bottom: 3px; }}
   h2 {{ font-size: 1.2rem; margin-top: 1.5em; border-bottom: 2px solid var(--border); padding-bottom: 4px; }}
   .cards {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 12px; }}
   .card {{
@@ -243,6 +274,7 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None):
     <h1>NBA &amp; NFL Predictions</h1>
     <div class="updated">Predictions last updated {esc(updated_et_str)} ET</div>
     <div class="disclaimer">{esc(DISCLAIMER)}</div>
+    {record_html}
     {warnings_html}
     {body_sections}
     <footer>Model methodology: see MODEL.md in the source repo. Data: ESPN, the-odds-api.com (DraftKings), Kalshi, Polymarket.</footer>

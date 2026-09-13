@@ -48,6 +48,18 @@ def connect(db_path):
         key TEXT PRIMARY KEY,
         value TEXT
     )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS predictions (
+        game_id TEXT PRIMARY KEY,
+        league TEXT NOT NULL,
+        date TEXT NOT NULL,
+        home_team TEXT NOT NULL,
+        away_team TEXT NOT NULL,
+        pick_team TEXT NOT NULL,
+        pick_prob REAL,
+        graded INTEGER NOT NULL DEFAULT 0,
+        correct INTEGER,
+        created_at TEXT
+    )""")
     conn.commit()
     return conn
 
@@ -192,6 +204,70 @@ def season_home_away_record(conn, league, team_id, season, home, before_date):
             wins += 1
         elif team_score < opp_score:
             losses += 1
+    return wins, losses
+
+
+def record_prediction(conn, game_id, league, date, home_team, away_team, pick_team, pick_prob):
+    """
+    Store the model's pick for a not-yet-final game, keyed by game_id (same id used for
+    apply_game once the game finishes). Safe to call again for the same game_id before it's
+    graded (e.g. the daily script running twice) -- it just updates the pick. Once graded,
+    the row is left alone so a later re-run can't retroactively change a scored prediction.
+    """
+    conn.execute(
+        """INSERT INTO predictions
+           (game_id, league, date, home_team, away_team, pick_team, pick_prob, graded, created_at)
+           VALUES (?,?,?,?,?,?,?,0,?)
+           ON CONFLICT(game_id) DO UPDATE SET
+             pick_team=excluded.pick_team,
+             pick_prob=excluded.pick_prob
+           WHERE graded=0""",
+        (game_id, league, date, home_team, away_team, pick_team, pick_prob,
+         datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+
+
+def grade_prediction(conn, game_id, home_score, away_score):
+    """
+    Score a stored prediction against a game's final result, if one was recorded and isn't
+    already graded. No-op (returns None) if there's no prediction for this game_id, or it was
+    already graded. A tie is graded but counts toward neither the win nor the loss column.
+    """
+    row = conn.execute(
+        "SELECT pick_team, home_team, away_team, graded FROM predictions WHERE game_id=?",
+        (game_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    pick_team, home_team, away_team, graded = row
+    if graded:
+        return None
+    if home_score == away_score:
+        conn.execute("UPDATE predictions SET graded=1, correct=NULL WHERE game_id=?", (game_id,))
+        conn.commit()
+        return None
+    winner = home_team if home_score > away_score else away_team
+    correct = 1 if winner == pick_team else 0
+    conn.execute("UPDATE predictions SET graded=1, correct=? WHERE game_id=?", (correct, game_id))
+    conn.commit()
+    return bool(correct)
+
+
+def get_prediction_record(conn, league=None):
+    """(correct_count, incorrect_count) over all graded predictions, optionally for one league."""
+    q = "SELECT correct, COUNT(*) FROM predictions WHERE graded=1 AND correct IS NOT NULL"
+    params = []
+    if league:
+        q += " AND league=?"
+        params.append(league)
+    q += " GROUP BY correct"
+    wins = losses = 0
+    for correct, count in conn.execute(q, params).fetchall():
+        if correct == 1:
+            wins = count
+        else:
+            losses = count
     return wins, losses
 
 

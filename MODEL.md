@@ -161,6 +161,17 @@ edge itself always stays anchored to the model's pick specifically, not the mark
 observation about a gap between two estimates, not a betting signal — see the disclaimer on the
 site.
 
+## 7. Prediction tracking (win/loss record)
+
+Every pick made for a not-yet-final game is stored (`predictions` table in `team_ratings.db`,
+keyed by the same `game_id` used to replay that game into Elo). Once the game's final score is
+replayed in (see section 1), the stored pick is graded: **correct** if the picked team was the
+actual winner, **incorrect** otherwise. A tie is graded (so it's never re-graded) but counts
+toward neither column. A prediction is only recorded if the game hadn't finished yet when the
+model saw it, so a pick can't be graded against a result the model already knew. The running
+correct/incorrect count (overall and per league) is shown on the site above the game cards. See
+`record_prediction()` / `grade_prediction()` / `get_prediction_record()` in `src/elo.py`.
+
 ## Data sources
 
 - Historical results: [nflverse](https://github.com/nflverse/nfldata) `games.csv` for NFL;

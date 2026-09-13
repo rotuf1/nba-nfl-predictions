@@ -102,6 +102,7 @@ def replay_recent_results(conn, league, today_et, lookback_days=4):
             )
             if applied_this:
                 applied += 1
+                elo.grade_prediction(conn, game_id, ev["home_score"], ev["away_score"])
     if applied:
         log.info("Replayed %d newly completed %s game(s) into Elo", applied, league)
     return ok_overall
@@ -339,6 +340,14 @@ def process_league(league, conn, today_et, odds_key, warnings):
         pick_team_name = home_name if pick_is_home else away_name
         model_pick_prob = model_home_prob if pick_is_home else 1 - model_home_prob
 
+        if ev["state"] != "post":
+            # Only record a pick made before the game's outcome is known -- this is what
+            # later gets graded correct/incorrect once the final score is replayed in.
+            game_id = f"{league}_{date_iso}_{away_abbr}_{home_abbr}"
+            pick_abbr = home_abbr if pick_is_home else away_abbr
+            elo.record_prediction(conn, game_id, league, date_iso, home_abbr, away_abbr,
+                                   pick_abbr, model_pick_prob)
+
         # The market's own favorite -- independently computed, so it can (rarely) name a
         # different team than the model's pick; the two "pick" lines on the card make that
         # visible on their own without a separate disagreement callout.
@@ -422,6 +431,11 @@ def main():
 
     nfl_games = process_league("NFL", conn, today_et, odds_key, warnings)
     nba_games = process_league("NBA", conn, today_et, odds_key, warnings)
+    record = {
+        "overall": elo.get_prediction_record(conn),
+        "NFL": elo.get_prediction_record(conn, "NFL"),
+        "NBA": elo.get_prediction_record(conn, "NBA"),
+    }
     conn.close()
 
     if nfl_games is None or nba_games is None:
@@ -436,7 +450,7 @@ def main():
 
     os.makedirs(DOCS_DIR, exist_ok=True)
     updated_str = now_et.strftime("%Y-%m-%d %-I:%M %p")
-    html = site.render_page(nba_games, nfl_games, updated_str, warnings)
+    html = site.render_page(nba_games, nfl_games, updated_str, warnings, record)
     with open(os.path.join(DOCS_DIR, "index.html"), "w") as f:
         f.write(html)
     log.info("Wrote %s with %d NFL and %d NBA game(s).",
