@@ -56,6 +56,15 @@
     font-size: 0.85rem;
     margin-bottom: 1.5em;
   }
+  .record {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    margin-bottom: 1.5em;
+  }
+  .record .section-title { display: block; margin-bottom: 3px; }
   h2 { font-size: 1.2rem; margin-top: 1.5em; border-bottom: 2px solid var(--border); padding-bottom: 4px; }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 12px; }
   .card {
@@ -87,8 +96,9 @@
 <body>
   <div class="wrap">
     <h1>NBA &amp; NFL Predictions</h1>
-    <div class="updated">Predictions last updated 2026-09-13 12:07 AM ET</div>
+    <div class="updated">Predictions last updated 2026-09-13 11:07 AM ET</div>
     <div class="disclaimer">This site presents the output of a statistical model (team Elo ratings plus documented adjustments) alongside public betting-market prices, purely for informational and entertainment purposes. It is not betting advice, and nothing here is a recommendation to wager on anything. See MODEL.md in the repo for the exact methodology.</div>
+    <div class="record"><span class="section-title">Model record (correct picks vs. incorrect, final games only)</span> NFL 0-1 (0.0%) · Overall 0-1 (0.0%)</div>
     
     <h2>NFL</h2><div class="cards">
     <div class="card">
@@ -105,11 +115,11 @@
 
       <div class="section">
         <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Cincinnati Bengals</span> 63.7%</div>
-        <div class="odds-line">DK: TB +164 / CIN -198</div>
-        <div class="odds-line">Kalshi: TB 36.5% / CIN 63.5%</div>
+        <div class="pick"><span class="pick-team">Cincinnati Bengals</span> 64.5%</div>
+        <div class="odds-line">DK: TB +170 / CIN -205</div>
+        <div class="odds-line">Kalshi: TB 35.5% / CIN 63.5%</div>
         <div class="odds-line">Polymarket: TB 35.5% / CIN 64.5%</div>
-        <div class="edge">Edge: -8.2 pts — model is less confident than the market</div>
+        <div class="edge">Edge: -9.0 pts — model is less confident than the market</div>
       </div>
 
       <div class="section">
@@ -169,11 +179,11 @@
 
       <div class="section">
         <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Tennessee Titans</span> 52.2%</div>
-        <div class="odds-line">DK: NYJ +100 / TEN -120</div>
+        <div class="pick"><span class="pick-team">Tennessee Titans</span> 51.7%</div>
+        <div class="odds-line">DK: NYJ -102 / TEN -118</div>
         <div class="odds-line">Kalshi: NYJ 48.5% / TEN 51.5%</div>
         <div class="odds-line">Polymarket: NYJ 48.5% / TEN 51.5%</div>
-        <div class="edge">Edge: +2.3 pts — model is more confident than the market</div>
+        <div class="edge">Edge: +2.7 pts — model is more confident than the market</div>
       </div>
 
       <div class="section">
@@ -233,11 +243,11 @@
 
       <div class="section">
         <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Pittsburgh Steelers</span> 69.6%</div>
-        <div class="odds-line">DK: ATL +215 / PIT -265</div>
-        <div class="odds-line">Kalshi: ATL 28.5% / PIT 72.5%</div>
+        <div class="pick"><span class="pick-team">Pittsburgh Steelers</span> 71.8%</div>
+        <div class="odds-line">DK: ATL +240 / PIT -298</div>
+        <div class="odds-line">Kalshi: ATL 27.5% / PIT 72.5%</div>
         <div class="odds-line">Polymarket: ATL 27.5% / PIT 72.5%</div>
-        <div class="edge">Edge: -4.4 pts — model is less confident than the market</div>
+        <div class="edge">Edge: -6.6 pts — model is less confident than the market</div>
       </div>
 
       <div class="section">
@@ -265,11 +275,11 @@
 
       <div class="section">
         <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Chicago Bears</span> 60.0%</div>
-        <div class="odds-line">DK: CHI -166 / CAR +140</div>
+        <div class="pick"><span class="pick-team">Chicago Bears</span> 60.4%</div>
+        <div class="odds-line">DK: CHI -170 / CAR +142</div>
         <div class="odds-line">Kalshi: CHI 59.5% / CAR 39.5%</div>
         <div class="odds-line">Polymarket: CHI 60.5% / CAR 39.5%</div>
-        <div class="edge">Edge: -5.2 pts — model is less confident than the market</div>
+        <div class="edge">Edge: -5.6 pts — model is less confident than the market</div>
       </div>
 
       <div class="section">
@@ -297,11 +307,11 @@
 
       <div class="section">
         <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Jacksonville Jaguars</span> 78.7%</div>
-        <div class="odds-line">DK: CLE +350 / JAX -455</div>
+        <div class="pick"><span class="pick-team">Jacksonville Jaguars</span> 79.1%</div>
+        <div class="odds-line">DK: CLE +360 / JAX -470</div>
         <div class="odds-line">Kalshi: CLE 20.5% / JAX 78.5%</div>
         <div class="odds-line">Polymarket: CLE 20.5% / JAX 79.5%</div>
-        <div class="edge">Edge: -8.0 pts — model is less confident than the market</div>
+        <div class="edge">Edge: -8.5 pts — model is less confident than the market</div>
       </div>
 
       <div class="section">
@@ -396,7 +406,7 @@
         <div class="pick"><span class="pick-team">Minnesota Vikings</span> 54.3%</div>
         <div class="odds-line">DK: GB +110 / MIN -130</div>
         <div class="odds-line">Kalshi: GB 45.5% / MIN 54.5%</div>
-        <div class="odds-line">Polymarket: GB 45.5% / MIN 54.5%</div>
+        <div class="odds-line">Polymarket: GB 44.5% / MIN 55.5%</div>
         <div class="edge">Edge: +6.0 pts — model is more confident than the market</div>
       </div>
 
@@ -425,11 +435,11 @@
 
       <div class="section">
         <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Philadelphia Eagles</span> 68.1%</div>
-        <div class="odds-line">DK: WSH +200 / PHI -245</div>
-        <div class="odds-line">Kalshi: WSH 31.5% / PHI 67.5%</div>
-        <div class="odds-line">Polymarket: WSH 31.5% / PHI 68.5%</div>
-        <div class="edge">Edge: +5.9 pts — model is more confident than the market</div>
+        <div class="pick"><span class="pick-team">Philadelphia Eagles</span> 69.6%</div>
+        <div class="odds-line">DK: WSH +215 / PHI -265</div>
+        <div class="odds-line">Kalshi: WSH 30.5% / PHI 69.5%</div>
+        <div class="odds-line">Polymarket: WSH 30.5% / PHI 69.5%</div>
+        <div class="edge">Edge: +4.4 pts — model is more confident than the market</div>
       </div>
 
       <div class="section">
@@ -457,11 +467,11 @@
 
       <div class="section">
         <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Los Angeles Chargers</span> 80.4%</div>
-        <div class="odds-line">DK: ARI +390 / LAC -520</div>
+        <div class="pick"><span class="pick-team">Los Angeles Chargers</span> 80.0%</div>
+        <div class="odds-line">DK: ARI +380 / LAC -500</div>
         <div class="odds-line">Kalshi: ARI 18.5% / LAC 80.5%</div>
         <div class="odds-line">Polymarket: ARI 19.5% / LAC 80.5%</div>
-        <div class="edge">Edge: -4.2 pts — model is less confident than the market</div>
+        <div class="edge">Edge: -3.8 pts — model is less confident than the market</div>
       </div>
 
       <div class="section">
@@ -489,11 +499,11 @@
 
       <div class="section">
         <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Dallas Cowboys</span> 59.3%</div>
-        <div class="odds-line">DK: DAL -162 / NYG +136</div>
+        <div class="pick"><span class="pick-team">Dallas Cowboys</span> 60.0%</div>
+        <div class="odds-line">DK: DAL -166 / NYG +140</div>
         <div class="odds-line">Kalshi: DAL 60.5% / NYG 39.5%</div>
-        <div class="odds-line">Polymarket: DAL 59.5% / NYG 40.5%</div>
-        <div class="edge">Edge: -1.5 pts — model is less confident than the market</div>
+        <div class="odds-line">Polymarket: DAL 60.5% / NYG 39.5%</div>
+        <div class="edge">Edge: -2.1 pts — model is less confident than the market</div>
       </div>
 
       <div class="section">
