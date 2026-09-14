@@ -175,13 +175,16 @@ def _is_short_term_ir(entry, game_date_iso):
 def injury_adjustment(league, espn_team_id, game_date_iso):
     """
     Returns (adjustment_points, injuries, ok_bool).
-    `injuries` is every reported injury (any status) as {name, position, status}, for
-    display on the card. The numeric adjustment counts Out and Doubtful (Doubtful at
-    DOUBTFUL_WEIGHT) plus short-term Injured Reserve (full weight, same as Out -- see
-    _is_short_term_ir), each weighted by that specific player's own production -- see
-    player_out_penalty() and MODEL.md section 3. Long-term/season-ending IR is skipped:
-    that absence is already reflected in the team's recent Elo results, so counting it
-    again here would double-count it.
+    `injuries` is every reported injury relevant to *today's game* -- Out, Doubtful,
+    Questionable, and short-term "designated to return" Injured Reserve -- for display
+    on the card. Long-term/season-ending Injured Reserve is left out of that list
+    entirely (not just the numeric adjustment): it isn't news about today's game, it's
+    already reflected in the team's recent Elo results, and on a roster with several
+    such players it was cluttering the card. The numeric adjustment counts Out and
+    Doubtful (Doubtful at DOUBTFUL_WEIGHT) plus short-term Injured Reserve (full
+    weight, same as Out -- see _is_short_term_ir), each weighted by that specific
+    player's own production -- see player_out_penalty() and MODEL.md section 3.
+    Questionable is shown but doesn't move the number.
     """
     if espn_team_id is None:
         return 0.0, [], False
@@ -191,22 +194,24 @@ def injury_adjustment(league, espn_team_id, game_date_iso):
 
     cap = NBA_INJURY_CAP if league == "NBA" else NFL_INJURY_CAP
     total = 0.0
+    relevant = []
     for i in injuries:
         status = (i.get("status") or "").lower()
         if status == "injured reserve":
             if not _is_short_term_ir(i, game_date_iso):
-                continue
+                continue  # long-term/season-ending: not today's-game news, drop entirely
             weight = 1.0
         elif status == "doubtful":
             weight = DOUBTFUL_WEIGHT
         elif status == "out":
             weight = 1.0
         else:
-            continue
-        penalty = player_out_penalty(league, i.get("athlete_id"), i.get("position")) * weight
-        total += penalty
+            weight = None  # e.g. Questionable: shown, but doesn't move the number
+        relevant.append(i)
+        if weight is not None:
+            total += player_out_penalty(league, i.get("athlete_id"), i.get("position")) * weight
     total = max(total, cap)
-    return total, injuries, True
+    return total, relevant, True
 
 
 def form_record(conn, league, team_abbr, before_date_iso, limit=RECENT_FORM_GAMES):

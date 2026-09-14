@@ -106,14 +106,16 @@ instead: **-10** (NBA) / **-6** (NFL). A **Doubtful** player's penalty (computed
 multiplied by **0.5** before being added in. The total per team is capped at **-70** (NBA) /
 **-50** (NFL) so a cluster of injuries can't blow past a sane bound.
 
-**Questionable** and long-term **Injured Reserve** are shown but don't move the number at all.
+**Questionable** is shown but doesn't move the number at all.
 
 Read the injury report itself (shown in each card's own "Injury report" section, separate from
 "Why") as the actual information — that section lists every player ESPN has flagged for either
-team under any status (Out, Doubtful, Questionable, Injured Reserve, etc.), not just the
-statuses that move the number above. If the injury endpoint is unavailable for a team, that
-team's section says "unavailable" (never a guessed or blank list), and the adjustment for that
-team is skipped (treated as 0) and logged.
+team under a status relevant to *today's game* (Out, Doubtful, Questionable, short-term Injured
+Reserve), not just the statuses that move the number above. Long-term/season-ending Injured
+Reserve is left out of that list entirely, not just the numeric adjustment — it isn't news about
+today's game, and a full IR list clutters the card. If the injury endpoint is unavailable for a
+team, that team's section says "unavailable" (never a guessed or blank list), and the adjustment
+for that team is skipped (treated as 0) and logged.
 
 ## 4. Final model probability for today's game
 
