@@ -93,11 +93,16 @@ def _extract_athlete_id(athlete):
 def get_league_injuries(league):
     """
     Fetches ESPN's league-wide injuries feed and returns {espn_team_id: [{name,
-    position, status, athlete_id}, ...]}, or None on failure. Cached per league for the
-    life of the process (the feed already covers every team in one response, so callers
-    should not re-fetch it per team). Entries with status "Active" are dropped -- that's
-    ESPN's tag for a roster/news note about a player who is not currently on the injury
-    report, not an actual designation like Questionable/Doubtful/Out/Injured Reserve.
+    position, status, athlete_id, return_date}, ...]}, or None on failure. Cached per
+    league for the life of the process (the feed already covers every team in one
+    response, so callers should not re-fetch it per team). Entries with status "Active"
+    are dropped -- that's ESPN's tag for a roster/news note about a player who is not
+    currently on the injury report, not an actual designation like Questionable/
+    Doubtful/Out/Injured Reserve.
+
+    return_date is ESPN's expected-return date (YYYY-MM-DD string) if they have one for
+    that entry, else None -- see daily_run.py's short-term-IR handling for why this
+    matters (a real near-term date vs. their season-ending placeholder date).
     """
     if league in _league_injuries_cache:
         return _league_injuries_cache[league]
@@ -126,6 +131,7 @@ def get_league_injuries(league):
                     "position": (athlete.get("position") or {}).get("abbreviation"),
                     "status": status,
                     "athlete_id": _extract_athlete_id(athlete),
+                    "return_date": (item.get("details") or {}).get("returnDate"),
                 })
             by_team[team_id] = entries
     except (KeyError, TypeError) as e:

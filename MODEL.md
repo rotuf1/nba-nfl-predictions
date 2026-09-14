@@ -63,7 +63,17 @@ applied and this is logged.
 
 Each **Out** or **Doubtful** player (from each league's ESPN injury report) is weighted by that
 specific player's own recent production, not counted the same as every other injury. This is
-computed in `src/player_value.py` / `player_out_penalty()` in `daily_run.py`:
+computed in `src/player_value.py` / `player_out_penalty()` in `daily_run.py`.
+
+**Injured Reserve** is a special case. A player already on IR for a while has had their absence
+baked into the team's recent results already (Elo naturally reflects a team's actual performance
+without them), so counting it again here would double-count it — that's why it's excluded by
+default. But a *newly*-placed, "designated to return" IR player is a genuinely new absence, not
+yet reflected anywhere, so it counts the same as Out (full weight). The distinction is made from
+ESPN's per-entry expected-return date: a real near-term date (empirically, always within ~10
+weeks as of 2026-09) means short-term/designated-to-return; their generic season-ending
+placeholder date (empirically, always ~5+ months out) means long-term — see
+`SHORT_TERM_IR_MAX_DAYS` / `_is_short_term_ir()` in `daily_run.py`.
 
 **NBA** — [Hollinger Game Score](https://en.wikipedia.org/wiki/Game_score), a well-known public
 box-score formula (not invented for this project), from the player's per-game averages this
@@ -96,12 +106,14 @@ instead: **-10** (NBA) / **-6** (NFL). A **Doubtful** player's penalty (computed
 multiplied by **0.5** before being added in. The total per team is capped at **-70** (NBA) /
 **-50** (NFL) so a cluster of injuries can't blow past a sane bound.
 
+**Questionable** and long-term **Injured Reserve** are shown but don't move the number at all.
+
 Read the injury report itself (shown in each card's own "Injury report" section, separate from
 "Why") as the actual information — that section lists every player ESPN has flagged for either
-team under any status (Out, Doubtful, Questionable, etc.), not just the two statuses that move
-the number above. If the injury endpoint is unavailable for a team, that team's section says
-"unavailable" (never a guessed or blank list), and the adjustment for that team is skipped
-(treated as 0) and logged.
+team under any status (Out, Doubtful, Questionable, Injured Reserve, etc.), not just the
+statuses that move the number above. If the injury endpoint is unavailable for a team, that
+team's section says "unavailable" (never a guessed or blank list), and the adjustment for that
+team is skipped (treated as 0) and logged.
 
 ## 4. Final model probability for today's game
 

@@ -46,6 +46,19 @@ NFL_INJURY_CAP = -50
 
 DOUBTFUL_WEIGHT = 0.5
 
+# A player already on Injured Reserve for a while has had their absence baked into the
+# team's recent game results already (Elo naturally reflects a team's actual results
+# without them) -- counting them again here would double-count. But a *newly*-placed
+# "designated to return" IR player is a genuinely new absence, same as an Out player,
+# so it should count the same way Out does. ESPN's injuries feed gives each IR entry an
+# expected return date; a real near-term one signals "designated to return" (short-term)
+# while a long way out (empirically, always their generic season-ending placeholder --
+# see espn.py's get_league_injuries docstring) signals season-ending (long-term).
+# SHORT_TERM_IR_MAX_DAYS sits well inside the gap actually observed between those two
+# groups (real near-term dates topped out at 70 days out; the placeholder is ~154 days
+# out) as of 2026-09.
+SHORT_TERM_IR_MAX_DAYS = 90
+
 RECENT_FORM_GAMES = 10
 SCOREBOARD_RETRY_ATTEMPTS = 3
 SCOREBOARD_RETRY_DELAY_SECONDS = 5
@@ -144,13 +157,31 @@ def player_out_penalty(league, athlete_id, position):
     return -max(score, 0.0) * NFL_VALUE_SCALE
 
 
-def injury_adjustment(league, espn_team_id):
+def _is_short_term_ir(entry, game_date_iso):
+    """True if an Injured Reserve entry's ESPN return date is a real near-term date
+    (short-term/"designated to return") rather than their season-ending placeholder --
+    see SHORT_TERM_IR_MAX_DAYS above."""
+    return_date = entry.get("return_date")
+    if not return_date:
+        return False
+    try:
+        days_out = (datetime.fromisoformat(return_date).date()
+                    - datetime.fromisoformat(game_date_iso).date()).days
+    except ValueError:
+        return False
+    return days_out <= SHORT_TERM_IR_MAX_DAYS
+
+
+def injury_adjustment(league, espn_team_id, game_date_iso):
     """
     Returns (adjustment_points, injuries, ok_bool).
     `injuries` is every reported injury (any status) as {name, position, status}, for
-    display on the card. The numeric adjustment only counts Out/Doubtful (Doubtful at
-    DOUBTFUL_WEIGHT), each weighted by that specific player's own production -- see
-    player_out_penalty() and MODEL.md section 3.
+    display on the card. The numeric adjustment counts Out and Doubtful (Doubtful at
+    DOUBTFUL_WEIGHT) plus short-term Injured Reserve (full weight, same as Out -- see
+    _is_short_term_ir), each weighted by that specific player's own production -- see
+    player_out_penalty() and MODEL.md section 3. Long-term/season-ending IR is skipped:
+    that absence is already reflected in the team's recent Elo results, so counting it
+    again here would double-count it.
     """
     if espn_team_id is None:
         return 0.0, [], False
@@ -162,11 +193,17 @@ def injury_adjustment(league, espn_team_id):
     total = 0.0
     for i in injuries:
         status = (i.get("status") or "").lower()
-        if status not in ("out", "doubtful"):
+        if status == "injured reserve":
+            if not _is_short_term_ir(i, game_date_iso):
+                continue
+            weight = 1.0
+        elif status == "doubtful":
+            weight = DOUBTFUL_WEIGHT
+        elif status == "out":
+            weight = 1.0
+        else:
             continue
-        penalty = player_out_penalty(league, i.get("athlete_id"), i.get("position"))
-        if status == "doubtful":
-            penalty *= DOUBTFUL_WEIGHT
+        penalty = player_out_penalty(league, i.get("athlete_id"), i.get("position")) * weight
         total += penalty
     total = max(total, cap)
     return total, injuries, True
@@ -311,8 +348,8 @@ def process_league(league, conn, today_et, odds_key, warnings):
         home_rest_adj, home_rest_note = rest_adjustment(league, conn, home_abbr, date_iso)
         away_rest_adj, away_rest_note = rest_adjustment(league, conn, away_abbr, date_iso)
 
-        home_inj_adj, home_injuries, home_inj_ok = injury_adjustment(league, team_ids.get(home_abbr))
-        away_inj_adj, away_injuries, away_inj_ok = injury_adjustment(league, team_ids.get(away_abbr))
+        home_inj_adj, home_injuries, home_inj_ok = injury_adjustment(league, team_ids.get(home_abbr), date_iso)
+        away_inj_adj, away_injuries, away_inj_ok = injury_adjustment(league, team_ids.get(away_abbr), date_iso)
         if not (home_inj_ok and away_inj_ok):
             warnings.append(f"{league} {away_abbr}@{home_abbr}: injury report unavailable for "
                              f"one or both teams; injury adjustment skipped where missing.")
