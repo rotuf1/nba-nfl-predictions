@@ -15,23 +15,33 @@ For a game between a home team `H` and away team `A`:
 expected_H = 1 / (1 + 10 ^ (-(rating_H + HOME_ADV - rating_A) / 400))
 expected_A = 1 - expected_H
 
-actual_H   = 1 if H won, 0 if H lost   (no soft credit for margin of victory)
+actual_H   = 1 if H won, 0 if H lost
 actual_A   = 1 - actual_H
 
-new_rating_H = rating_H + K * (actual_H - expected_H)
-new_rating_A = rating_A + K * (actual_A - expected_A)
+point_diff       = abs(score_H - score_A)
+winner_elo_diff  = pre-game rating gap (incl. HOME_ADV) in the winning team's favor
+
+mov_mult (NFL) = ln(point_diff + 1) * (2.2 / (winner_elo_diff * 0.001 + 2.2))
+mov_mult (NBA) = (point_diff + 3) ^ 0.8 / (7.5 + 0.006 * winner_elo_diff)
+
+new_rating_H = rating_H + K * mov_mult * (actual_H - expected_H)
+new_rating_A = rating_A + K * mov_mult * (actual_A - expected_A)
 ```
 
-This is plain win/loss Elo — it deliberately does **not** weight by margin of victory. That's a
-simplification: a 1-point win and a 30-point win move ratings by the same amount. It's easier to
-audit and explain than a margin-of-victory-adjusted system, at some cost to accuracy.
+Margin of victory scales the rating change via `mov_mult`, using FiveThirtyEight's published
+NFL/NBA Elo formulas (not derived from a grid search on this data — same "public, documented
+formula reused as-is" approach as the Hollinger Game Score / fantasy-scoring injury weights in
+section 3). A 1-point win and a 30-point win no longer move ratings the same amount. The
+`winner_elo_diff` term in the denominator damps the effect for a big favorite winning big — an
+already-expected blowout gets less credit than a similar-sized upset, so a heavy favorite
+crushing a bad team doesn't inflate its rating just for doing what was expected.
 
 ### Constants (current)
 
-| League | HOME_ADV | K-factor | Season regression |
-|---|---|---|---|
-| NBA | 100 Elo pts | 20 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
-| NFL | 48 Elo pts | 20 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
+| League | HOME_ADV | K-factor | MOV constants | Season regression |
+|---|---|---|---|---|
+| NBA | 100 Elo pts | 20 | offset=3.0, b=7.5, c=0.006 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
+| NFL | 48 Elo pts | 20 | a=2.2, b=0.001 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
 
 These are standard starting points used by public Elo sports models (not derived from a formal
 grid search on this data), chosen so ratings are transparent and stable rather than
@@ -39,8 +49,8 @@ over-fit. Season regression exists because rosters change materially between sea
 every team 25% of the way back toward the 1500 mean before the new season's games are replayed,
 so an early-season game a team wins isn't over-explained by two-year-old form.
 
-Constants live in `src/elo.py` as `HOME_ADV` and `K_FACTOR` per league — change them there if you
-retune, and update this table to match.
+Constants live in `src/elo.py` as `HOME_ADV`, `K_FACTOR`, and `MOV_CONSTANTS` per league — change
+them there if you retune, and update this table to match.
 
 ## 2. Rest adjustment (applied only to today's prediction, not stored back into Elo)
 
@@ -199,7 +209,6 @@ correct/incorrect count (overall and per league) is shown on the site above the 
 - Preseason games (ESPN `season.type == 1`) are excluded entirely -- not replayed into Elo,
   not shown on the site -- since rosters and results aren't representative of the real season.
   A day with only preseason games is treated as an off-day for that league.
-- No margin-of-victory weighting in Elo.
 - Injury adjustment is a blunt per-player-status count, not player-value-weighted.
 - Playoff games are replayed into Elo the same as regular-season games (no separate weighting).
 - New teams/relocations/expansion teams start at 1500 with no history.

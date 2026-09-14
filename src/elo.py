@@ -10,6 +10,7 @@ The SQLite database (team_ratings.db, path given by caller) holds three tables:
         -- log and to make replays idempotent (a game_id is only ever applied once).
   meta(key, value)                              -- small key/value store, e.g. last season seen
 """
+import math
 import sqlite3
 from datetime import datetime
 
@@ -17,6 +18,24 @@ HOME_ADV = {"NBA": 100, "NFL": 48}
 K_FACTOR = {"NBA": 20, "NFL": 20}
 SEASON_REGRESSION = 0.75  # new = REGRESSION * old + (1 - REGRESSION) * 1500
 START_RATING = 1500.0
+
+# Margin-of-victory multiplier on K, FiveThirtyEight's published NFL/NBA Elo formulas.
+# Damped by winner_elo_diff (pre-game rating gap in the winner's favor) so a big favorite
+# winning big gets less credit than an underdog winning by the same margin.
+MOV_CONSTANTS = {
+    "NFL": {"a": 2.2, "b": 0.001},
+    "NBA": {"offset": 3.0, "b": 7.5, "c": 0.006},
+}
+
+
+def mov_multiplier(league, point_diff, winner_elo_diff):
+    """Scales K by how large/surprising the margin of victory was. point_diff >= 1."""
+    if league == "NFL":
+        a, b = MOV_CONSTANTS["NFL"]["a"], MOV_CONSTANTS["NFL"]["b"]
+        return math.log(point_diff + 1) * (a / (winner_elo_diff * b + a))
+    else:  # NBA
+        offset, b, c = MOV_CONSTANTS["NBA"]["offset"], MOV_CONSTANTS["NBA"]["b"], MOV_CONSTANTS["NBA"]["c"]
+        return ((point_diff + offset) ** 0.8) / (b + c * winner_elo_diff)
 
 
 def connect(db_path):
@@ -117,17 +136,24 @@ def apply_game(conn, league, game_id, season, date, home_team, away_team,
     home_adv = HOME_ADV[league]
     k = K_FACTOR[league]
 
-    expected_home = expected_score(rating_home + home_adv, rating_away)
+    effective_rating_home = rating_home + home_adv
+    expected_home = expected_score(effective_rating_home, rating_away)
     expected_away = 1.0 - expected_home
 
     if home_score == away_score:
         actual_home, actual_away = 0.5, 0.5
+        mult = 1.0
     else:
         actual_home = 1.0 if home_score > away_score else 0.0
         actual_away = 1.0 - actual_home
 
-    new_rating_home = rating_home + k * (actual_home - expected_home)
-    new_rating_away = rating_away + k * (actual_away - expected_away)
+        point_diff = abs(home_score - away_score)
+        winner_elo_diff = (effective_rating_home - rating_away) if actual_home == 1.0 \
+            else (rating_away - effective_rating_home)
+        mult = mov_multiplier(league, point_diff, winner_elo_diff)
+
+    new_rating_home = rating_home + k * mult * (actual_home - expected_home)
+    new_rating_away = rating_away + k * mult * (actual_away - expected_away)
 
     conn.execute(
         "UPDATE teams SET rating=? WHERE league=? AND team_id=?",
