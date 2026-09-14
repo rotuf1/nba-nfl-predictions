@@ -6,6 +6,7 @@ unexpected shape returns None/[] rather than raising, and the caller is expected
 log that and fall back (e.g. to a web search) rather than guess.
 """
 import logging
+import re
 
 import requests
 
@@ -17,6 +18,16 @@ SPORT_PATH = {
 }
 
 TIMEOUT = 15
+
+# ESPN's per-team "/teams/{id}/injuries" endpoint (site.api.espn.com) returns an empty
+# {} for every team as of 2026-09 -- looks dead/deprecated. The league-wide feed below
+# is what actually backs espn.com's injuries pages and is confirmed live.
+_ATHLETE_ID_RE = re.compile(r"/id/(\d+)/")
+
+# One league-wide injuries fetch is reused for every team lookup within a single
+# daily_run.py process (it already covers all 32/30 teams in one response), instead of
+# re-fetching per team per game.
+_league_injuries_cache = {}
 
 
 def get_scoreboard(league, date_yyyymmdd):
@@ -69,38 +80,76 @@ def parse_events(league, scoreboard_json):
     return out
 
 
-def get_team_injuries(league, espn_team_id):
+def _extract_athlete_id(athlete):
+    """The league-wide injuries feed doesn't include a bare athlete id field -- pull it
+    out of the athlete's ESPN player-card link (.../player/_/id/<id>/<slug>) instead."""
+    for link in athlete.get("links", []):
+        m = _ATHLETE_ID_RE.search(link.get("href") or "")
+        if m:
+            return m.group(1)
+    return None
+
+
+def get_league_injuries(league):
     """
-    Returns a list of {name, position, status, athlete_id} for a team, or None on
-    failure. espn_team_id is ESPN's numeric team id (not the abbreviation) -- pass the
-    id from the scoreboard team object's "id" field. athlete_id may be None if ESPN's
-    payload doesn't carry it for a given entry -- callers must handle that (it just
-    means per-player stats can't be looked up for that entry).
+    Fetches ESPN's league-wide injuries feed and returns {espn_team_id: [{name,
+    position, status, athlete_id}, ...]}, or None on failure. Cached per league for the
+    life of the process (the feed already covers every team in one response, so callers
+    should not re-fetch it per team). Entries with status "Active" are dropped -- that's
+    ESPN's tag for a roster/news note about a player who is not currently on the injury
+    report, not an actual designation like Questionable/Doubtful/Out/Injured Reserve.
     """
-    url = (f"http://site.api.espn.com/apis/site/v2/sports/{SPORT_PATH[league]}"
-           f"/teams/{espn_team_id}/injuries")
+    if league in _league_injuries_cache:
+        return _league_injuries_cache[league]
+
+    url = f"http://site.api.espn.com/apis/site/v2/sports/{SPORT_PATH[league]}/injuries"
     try:
         resp = requests.get(url, timeout=TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
     except (requests.RequestException, ValueError) as e:
-        log.error("ESPN injuries fetch failed for %s team %s: %s", league, espn_team_id, e)
+        log.error("ESPN league injuries fetch failed for %s: %s", league, e)
         return None
 
-    out = []
+    by_team = {}
     try:
-        for item in data.get("injuries", []):
-            athlete = item.get("athlete", {})
-            out.append({
-                "name": athlete.get("displayName", "unknown"),
-                "position": (athlete.get("position") or {}).get("abbreviation"),
-                "status": item.get("status") or (item.get("type") or {}).get("description"),
-                "athlete_id": athlete.get("id"),
-            })
+        for team in data.get("injuries", []):
+            team_id = team.get("id")
+            entries = []
+            for item in team.get("injuries", []):
+                status = item.get("status") or (item.get("type") or {}).get("description")
+                if (status or "").lower() == "active":
+                    continue
+                athlete = item.get("athlete", {})
+                entries.append({
+                    "name": athlete.get("displayName", "unknown"),
+                    "position": (athlete.get("position") or {}).get("abbreviation"),
+                    "status": status,
+                    "athlete_id": _extract_athlete_id(athlete),
+                })
+            by_team[team_id] = entries
     except (KeyError, TypeError) as e:
-        log.error("Failed to parse ESPN injuries for %s team %s: %s", league, espn_team_id, e)
+        log.error("Failed to parse ESPN league injuries for %s: %s", league, e)
         return None
-    return out
+
+    _league_injuries_cache[league] = by_team
+    return by_team
+
+
+def get_team_injuries(league, espn_team_id):
+    """
+    Returns a list of {name, position, status, athlete_id} for a team, or None on
+    failure. espn_team_id is ESPN's numeric team id (not the abbreviation) -- pass the
+    id from the scoreboard team object's "id" field. athlete_id may be None if ESPN's
+    payload doesn't carry a resolvable id for a given entry -- callers must handle that
+    (it just means per-player stats can't be looked up for that entry).
+    """
+    if espn_team_id is None:
+        return None
+    by_team = get_league_injuries(league)
+    if by_team is None:
+        return None
+    return by_team.get(str(espn_team_id), [])
 
 
 def _parse_num(value):
