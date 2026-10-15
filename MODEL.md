@@ -40,14 +40,27 @@ crushing a bad team doesn't inflate its rating just for doing what was expected.
 
 | League | HOME_ADV | K-factor | MOV constants | Season regression |
 |---|---|---|---|---|
-| NBA | 100 Elo pts | 20 | offset=3.0, b=7.5, c=0.006 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
-| NFL | 48 Elo pts | 20 | a=2.2, b=0.001 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
+| NBA | 40 Elo pts | 20 | offset=3.0, b=7.5, c=0.006 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
+| NFL | 24 Elo pts | 20 | a=2.2, b=0.001 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
 
 These are standard starting points used by public Elo sports models (not derived from a formal
 grid search on this data), chosen so ratings are transparent and stable rather than
 over-fit. Season regression exists because rosters change materially between seasons — it pulls
 every team 25% of the way back toward the 1500 mean before the new season's games are replayed,
 so an early-season game a team wins isn't over-explained by two-year-old form.
+
+**Home advantage** was retuned 2026-10-15 (from NBA 100 / NFL 48). It's the one constant
+that *was* checked against this data: replaying every stored game under a grid of values
+and scoring each game's pre-game probability by log loss, the best fit was ~40 for NBA
+(2021-2026 seasons, 7,776 games) and ~24 for NFL (2020-2026, 1,766 games). Both match the
+raw base rates: NBA home teams have won ~55% of games every season since 2020, NFL ~54%,
+well below the 64% / 57% the old values implied for evenly matched teams. Home advantage
+league-wide shrank noticeably after 2020, which is why the older published values ran high.
+
+Changing any of these constants means the stored ratings were built under different rules.
+`daily_run.py` detects this (`elo.constants_signature()` vs the `elo_constants` meta key) and
+replays every stored game from scratch under the new constants (`elo.rebuild_ratings()`)
+before predicting -- no refetching needed, since the `games` table holds every final score.
 
 Constants live in `src/elo.py` as `HOME_ADV`, `K_FACTOR`, and `MOV_CONSTANTS` per league — change
 them there if you retune, and update this table to match.
@@ -92,8 +105,15 @@ season (or last season, until the new one has games in the books):
 ```
 game_score = PTS + 0.4*FGM - 0.7*FGA - 0.4*(FTA-FTM) + 0.7*ORB + 0.3*DRB
              + STL + 0.7*AST + 0.7*BLK - 0.4*PF - TOV
-elo_penalty = -max(game_score, 0) * 1.5        # NBA_VALUE_SCALE
+elo_penalty = -max(game_score - 5.0, 0) * 8.0   # NBA_REPLACEMENT_GAME_SCORE, NBA_VALUE_SCALE
 ```
+
+The player is measured against a replacement-level backup (Game Score 5), since someone else
+plays those minutes. At roughly 28 Elo per point of NBA spread, a star (Game Score ~22-25) is
+worth about 5-6 points, a solid starter (~12) about 2, and a deep-bench player ~0. These are
+round-number heuristics sized to how much NBA lines typically move on a single absence -- there's
+no stored history of past injury reports to fit them against. (Before 2026-10-15 this was
+`game_score * 1.5` with a -70 cap, which priced even an MVP-level absence at only ~1 point.)
 
 **NFL** — there's no free, live, per-game, cross-position equivalent to Game Score. Real
 Pro-Football-Reference Approximate Value is genuinely complex (separate formulas per position
@@ -112,8 +132,8 @@ elo_penalty = -max(score, 0) * 1.5              # NFL_VALUE_SCALE
 **Fallback**: if a player's stats can't be fetched (missing athlete id, ESPN request failure),
 or — NFL only — the player's position isn't one of the skill positions above (line, defense,
 specialists have no comparably clean free per-game production stat), a flat penalty is used
-instead: **-10** (NBA) / **-6** (NFL). A **Doubtful** player's penalty (computed the same way) is
-multiplied by **0.5** before being added in. The total per team is capped at **-70** (NBA) /
+instead: **-15** (NBA) / **-6** (NFL). A **Doubtful** player's penalty (computed the same way) is
+multiplied by **0.5** before being added in. The total per team is capped at **-250** (NBA) /
 **-50** (NFL) so a cluster of injuries can't blow past a sane bound.
 
 **Questionable** is shown but doesn't move the number at all.
@@ -191,8 +211,14 @@ Every pick made for a not-yet-final game is stored (`predictions` table in `team
 keyed by the same `game_id` used to replay that game into Elo). Once the game's final score is
 replayed in (see section 1), the stored pick is graded: **correct** if the picked team was the
 actual winner, **incorrect** otherwise. A tie is graded (so it's never re-graded) but counts
-toward neither column. A prediction is only recorded if the game hadn't finished yet when the
-model saw it, so a pick can't be graded against a result the model already knew. The running
+toward neither column. A prediction is only recorded or updated while the game hasn't started yet (ESPN state `pre`),
+so the graded pick is always the last one made **before kickoff** -- never one revised mid-game
+on a live score or in-game injury, and never one made after the result was known. Once a game
+has started, its card also shows that locked pick rather than re-deriving one. (Before
+2026-10-15 picks kept updating until the game was final; that was changed after finding a pick
+that had flipped mid-game.) The site runs at 12pm, 4pm and 6:35pm ET, plus 8:45am ET on Sundays
+during the NFL season, so the locked pick is normally from the 6:35pm run for evening games and
+from the 8:45am run for 9:30am ET NFL international games. The running
 correct/incorrect count (overall and per league) is shown on the site above the game cards. See
 `record_prediction()` / `grade_prediction()` / `get_prediction_record()` in `src/elo.py`.
 

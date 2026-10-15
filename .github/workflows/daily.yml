@@ -3,7 +3,12 @@ name: Daily predictions
 on:
   workflow_dispatch: {}
   schedule:
-    # Targets 12:00am / 11:00am / 4:00pm America/New_York, year-round. GitHub Actions
+    # Targets 12:00pm / 4:00pm / 6:35pm America/New_York, year-round, plus 8:45am on
+    # Sundays during the NFL season (Sep-Feb) so 9:30am ET international games get a
+    # pre-kickoff pick recorded. 6:35pm is the
+    # last look before 7pm NBA tips / 8:15pm NFL primetime kickoffs, to catch late
+    # injury news; picks lock at kickoff, so a run that starts after a game has begun
+    # leaves that game's last pre-kickoff pick in place. GitHub Actions
     # cron always runs in UTC and does not observe daylight saving time, so this is
     # split into an EDT set (UTC-4, roughly March-October) and an EST set (UTC-5,
     # roughly November-February) using calendar-month boundaries as an approximation --
@@ -11,8 +16,12 @@ on:
     # (early/mid March, early November) where a run lands about an hour off from the
     # intended local time. Not exact, but self-correcting every DST change and not
     # worth the added complexity of day-precise overrides for a personal project.
-    - cron: '0 4,15,20 * 3,4,5,6,7,8,9,10 *'   # EDT: 12am/11am/4pm ET
-    - cron: '0 5,16,21 * 11,12,1,2 *'          # EST: 12am/11am/4pm ET
+    - cron: '0 16,20 * 3,4,5,6,7,8,9,10 *'     # EDT: 12pm/4pm ET
+    - cron: '35 22 * 3,4,5,6,7,8,9,10 *'       # EDT: 6:35pm ET
+    - cron: '0 17,21 * 11,12,1,2 *'            # EST: 12pm/4pm ET
+    - cron: '35 23 * 11,12,1,2 *'              # EST: 6:35pm ET
+    - cron: '45 12 * 9,10 0'                   # EDT: Sun 8:45am ET (NFL international)
+    - cron: '45 13 * 11,12,1,2 0'              # EST: Sun 8:45am ET (NFL international)
 
 permissions:
   contents: write

@@ -14,7 +14,7 @@ import math
 import sqlite3
 from datetime import datetime
 
-HOME_ADV = {"NBA": 100, "NFL": 48}
+HOME_ADV = {"NBA": 40, "NFL": 24}
 K_FACTOR = {"NBA": 20, "NFL": 20}
 SEASON_REGRESSION = 0.75  # new = REGRESSION * old + (1 - REGRESSION) * 1500
 START_RATING = 1500.0
@@ -118,7 +118,7 @@ def expected_score(rating_a, rating_b):
 
 
 def apply_game(conn, league, game_id, season, date, home_team, away_team,
-                home_score, away_score, home_name=None, away_name=None):
+                home_score, away_score, home_name=None, away_name=None, commit=True):
     """
     Replay one final game's result into the Elo ratings. Idempotent: if game_id has
     already been processed, this is a no-op. Returns True if the game was newly applied.
@@ -172,8 +172,40 @@ def apply_game(conn, league, game_id, season, date, home_team, away_team,
          rating_home, rating_away, new_rating_home, new_rating_away,
          datetime.utcnow().isoformat()),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return True
+
+
+def constants_signature():
+    """Fingerprint of every constant that shapes stored ratings -- if it changes, the
+    stored ratings were built under different rules and need a full rebuild."""
+    return repr((HOME_ADV, K_FACTOR, MOV_CONSTANTS, SEASON_REGRESSION, START_RATING))
+
+
+def rebuild_ratings(conn):
+    """
+    Replay every stored game (both leagues) from scratch under the current constants,
+    in one transaction. The games table already holds every final score ever replayed,
+    so no refetching is needed. Predictions are left untouched.
+    """
+    games = conn.execute(
+        """SELECT league, game_id, season, date, home_team, away_team, home_score, away_score
+           FROM games ORDER BY date, game_id"""
+    ).fetchall()
+    conn.execute("DELETE FROM games")
+    conn.execute(f"UPDATE teams SET rating={START_RATING}, last_season_regressed=NULL")
+    for g in games:
+        apply_game(conn, *g, commit=False)
+    conn.commit()
+    return len(games)
+
+
+def get_prediction(conn, game_id):
+    """(pick_team, pick_prob) for a stored prediction, or None."""
+    return conn.execute(
+        "SELECT pick_team, pick_prob FROM predictions WHERE game_id=?", (game_id,)
+    ).fetchone()
 
 
 def last_game_date(conn, league, team_id, before_date=None):

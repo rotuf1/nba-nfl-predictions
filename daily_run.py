@@ -36,9 +36,16 @@ REST_EXTRA_NFL_MAX_DAYS = 21  # beyond this it's an offseason gap (e.g. season o
 # score can't be computed (stats fetch failed, or -- NFL only -- a non-skill position
 # with no clean free per-game production stat). Doubtful counts at DOUBTFUL_WEIGHT of
 # the same player's Out-equivalent penalty. CAP bounds the total per team.
-NBA_VALUE_SCALE = 1.5
-NBA_INJURY_FALLBACK_OUT = -10
-NBA_INJURY_CAP = -70
+# NBA: a player's Game Score is measured above a replacement-level backup's
+# (NBA_REPLACEMENT_GAME_SCORE), since the team doesn't lose his whole output -- someone
+# else plays those minutes. At ~28 Elo per point of spread, the scale puts a star
+# (Game Score ~22-25) at about 5-6 points, a solid starter (~12) at about 2 points, and
+# a deep-bench player at ~0. NBA lines move far more on a single absence than NFL lines
+# do (fewer players, bigger minutes share), hence the much larger scale and cap.
+NBA_VALUE_SCALE = 8.0
+NBA_REPLACEMENT_GAME_SCORE = 5.0
+NBA_INJURY_FALLBACK_OUT = -15
+NBA_INJURY_CAP = -250
 
 NFL_VALUE_SCALE = 1.5
 NFL_INJURY_FALLBACK_OUT = -6
@@ -150,7 +157,7 @@ def player_out_penalty(league, athlete_id, position):
         score = player_value.nba_game_score(stats)
         if score is None:
             return NBA_INJURY_FALLBACK_OUT
-        return -max(score, 0.0) * NBA_VALUE_SCALE
+        return -max(score - NBA_REPLACEMENT_GAME_SCORE, 0.0) * NBA_VALUE_SCALE
     score = player_value.nfl_production_score(stats, position)
     if score is None:
         return NFL_INJURY_FALLBACK_OUT
@@ -377,15 +384,25 @@ def process_league(league, conn, today_et, odds_key, warnings):
         kalshi_result = kalshi.get_game_market(league, today_et, home_abbr, away_abbr)
         poly_result = polymarket.get_game_market(league, today_et, home_name, away_name)
 
-        # The model's own pick (not always the home team).
-        pick_is_home = model_home_prob >= 0.5
+        game_id = f"{league}_{date_iso}_{away_abbr}_{home_abbr}"
+        locked = elo.get_prediction(conn, game_id) if ev["state"] != "pre" else None
+        if locked:
+            # Game has started (or finished): the pick is locked at its last pre-kickoff
+            # value. Show that instead of re-deriving it from ratings/injuries that may now
+            # reflect in-game news or (for finals) the result itself.
+            locked_team, locked_prob = locked
+            pick_is_home = locked_team == home_abbr
+            model_pick_prob = locked_prob
+            model_home_prob = locked_prob if pick_is_home else 1 - locked_prob
+        else:
+            # The model's own pick (not always the home team).
+            pick_is_home = model_home_prob >= 0.5
+            model_pick_prob = model_home_prob if pick_is_home else 1 - model_home_prob
         pick_team_name = home_name if pick_is_home else away_name
-        model_pick_prob = model_home_prob if pick_is_home else 1 - model_home_prob
 
-        if ev["state"] != "post":
-            # Only record a pick made before the game's outcome is known -- this is what
-            # later gets graded correct/incorrect once the final score is replayed in.
-            game_id = f"{league}_{date_iso}_{away_abbr}_{home_abbr}"
+        if ev["state"] == "pre":
+            # Only record (or update) a pick before kickoff -- this is what later gets
+            # graded correct/incorrect once the final score is replayed in.
             pick_abbr = home_abbr if pick_is_home else away_abbr
             elo.record_prediction(conn, game_id, league, date_iso, home_abbr, away_abbr,
                                    pick_abbr, model_pick_prob)
@@ -470,6 +487,14 @@ def main():
 
     conn = elo.connect(DB_PATH)
     warnings = []
+
+    # Stored ratings depend on HOME_ADV/K/etc. If those constants changed since the ratings
+    # were built, replay all stored games under the new ones before predicting anything.
+    signature = elo.constants_signature()
+    if elo.get_meta(conn, "elo_constants") != signature:
+        n = elo.rebuild_ratings(conn)
+        elo.set_meta(conn, "elo_constants", signature)
+        log.info("Elo constants changed -- rebuilt ratings from %d stored games.", n)
 
     nfl_games = process_league("NFL", conn, today_et, odds_key, warnings)
     nba_games = process_league("NBA", conn, today_et, odds_key, warnings)
