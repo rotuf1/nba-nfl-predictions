@@ -216,7 +216,11 @@ so the graded pick is always the last one made **before kickoff** -- never one r
 on a live score or in-game injury, and never one made after the result was known. Once a game
 has started, its card also shows that locked pick rather than re-deriving one. (Before
 2026-10-15 picks kept updating until the game was final; that was changed after finding a pick
-that had flipped mid-game.) The site runs at 12pm, 4pm and 6:35pm ET, plus 8:45am ET on Sundays
+that had flipped mid-game.) Since 2026-10-19 the whole pre-kickoff card (DK/Kalshi/Polymarket
+odds, market pick, edge, why, injuries) is stored with the pick (`predictions.card_json`), and
+in-progress (LIVE badge) and final cards render that snapshot with only the status and score
+updated -- before that, runs during a game showed live in-game odds and injury churn, which
+looked like the picks were changing. The site runs at 11:50am, 3:40pm and 6:35pm ET, plus 8:45am ET on Sundays
 during the NFL season, so the locked pick is normally from the 6:35pm run for evening games and
 from the 8:45am run for 9:30am ET NFL international games. The running
 correct/incorrect count (overall and per league) is shown on the site above the game cards. See

@@ -46,7 +46,7 @@ def render_game_card(game):
     """
     game: {
       league, tipoff_et_str, away_abbr, away_name, home_abbr, home_name,
-      status ('scheduled'|'final'), final_score (str or None),
+      status ('scheduled'|'live'|'final'), final_score (str or None),
       pick_team_name, model_pick_prob,
       market_pick_team_name, market_pick_prob, edge,
       dk_home_odds, dk_away_odds,
@@ -82,6 +82,8 @@ def render_game_card(game):
     status_badge = ""
     if g.get("status") == "final":
         status_badge = f'<span class="badge badge-final">FINAL {esc(g.get("final_score", ""))}</span>'
+    elif g.get("status") == "live":
+        status_badge = '<span class="badge badge-live">LIVE · pre-kickoff card</span>'
 
     dk_line = (
         f'DK: {esc(g["away_abbr"])} {fmt_odds(g.get("dk_away_odds"))} / '
@@ -253,6 +255,7 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None
   .matchup {{ font-weight: 600; }}
   .badge {{ font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }}
   .badge-final {{ background: var(--border); color: var(--muted); }}
+  .badge-live {{ background: #c0392b; color: #fff; }}
   .tipoff {{ color: var(--muted); font-size: 0.85rem; margin-bottom: 10px; }}
   .section {{ margin-top: 10px; }}
   .section-title {{ font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 3px; }}

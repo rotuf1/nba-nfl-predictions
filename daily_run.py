@@ -400,13 +400,6 @@ def process_league(league, conn, today_et, odds_key, warnings):
             model_pick_prob = model_home_prob if pick_is_home else 1 - model_home_prob
         pick_team_name = home_name if pick_is_home else away_name
 
-        if ev["state"] == "pre":
-            # Only record (or update) a pick before kickoff -- this is what later gets
-            # graded correct/incorrect once the final score is replayed in.
-            pick_abbr = home_abbr if pick_is_home else away_abbr
-            elo.record_prediction(conn, game_id, league, date_iso, home_abbr, away_abbr,
-                                   pick_abbr, model_pick_prob)
-
         # The market's own favorite -- independently computed, so it can (rarely) name a
         # different team than the model's pick; the two "pick" lines on the card make that
         # visible on their own without a separate disagreement callout.
@@ -443,12 +436,12 @@ def process_league(league, conn, today_et, odds_key, warnings):
         if ev["state"] == "post" and ev["home_score"] is not None:
             final_score = f"{away_abbr} {ev['away_score']} - {home_abbr} {ev['home_score']}"
 
-        games.append({
+        game = {
             "league": league,
             "tipoff_et_str": tipoff_str,
             "away_abbr": away_abbr, "away_name": away_name,
             "home_abbr": home_abbr, "home_name": home_name,
-            "status": "final" if ev["state"] == "post" else "scheduled",
+            "status": {"post": "final", "in": "live"}.get(ev["state"], "scheduled"),
             "final_score": final_score,
             "model_home_prob": model_home_prob,
             "market_true_home_prob": market_true_home_prob,
@@ -465,7 +458,24 @@ def process_league(league, conn, today_et, odds_key, warnings):
             "why": why,
             "home_injuries": home_injuries, "home_injuries_ok": home_inj_ok,
             "away_injuries": away_injuries, "away_injuries_ok": away_inj_ok,
-        })
+        }
+
+        if ev["state"] == "pre":
+            # Only record (or update) a pick before kickoff -- this is what later gets
+            # graded correct/incorrect once the final score is replayed in. The whole card
+            # is stored with it so the site can keep showing it after kickoff.
+            pick_abbr = home_abbr if pick_is_home else away_abbr
+            elo.record_prediction(conn, game_id, league, date_iso, home_abbr, away_abbr,
+                                   pick_abbr, model_pick_prob, card=game)
+        else:
+            # Game has started: show the card as it stood before kickoff (otherwise the odds,
+            # market pick, edge and injuries become live in-game values), updating only the
+            # status and score.
+            snapshot = elo.get_card_snapshot(conn, game_id)
+            if snapshot:
+                game = {**snapshot, "status": game["status"], "final_score": game["final_score"]}
+
+        games.append(game)
 
     return games
 

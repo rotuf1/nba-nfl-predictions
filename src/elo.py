@@ -10,6 +10,7 @@ The SQLite database (team_ratings.db, path given by caller) holds three tables:
         -- log and to make replays idempotent (a game_id is only ever applied once).
   meta(key, value)                              -- small key/value store, e.g. last season seen
 """
+import json
 import math
 import sqlite3
 from datetime import datetime
@@ -79,6 +80,12 @@ def connect(db_path):
         correct INTEGER,
         created_at TEXT
     )""")
+    # Added 2026-10-19: the full pre-kickoff game card (odds, market pick, edge, injuries,
+    # why), so in-game/final cards can show what the site said before kickoff instead of
+    # live in-game odds and injury churn.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(predictions)")}
+    if "card_json" not in cols:
+        conn.execute("ALTER TABLE predictions ADD COLUMN card_json TEXT")
     conn.commit()
     return conn
 
@@ -208,6 +215,14 @@ def get_prediction(conn, game_id):
     ).fetchone()
 
 
+def get_card_snapshot(conn, game_id):
+    """The last pre-kickoff game card stored by record_prediction, or None."""
+    row = conn.execute(
+        "SELECT card_json FROM predictions WHERE game_id=?", (game_id,)
+    ).fetchone()
+    return json.loads(row[0]) if row and row[0] else None
+
+
 def last_game_date(conn, league, team_id, before_date=None):
     """Most recent processed game date for a team, optionally strictly before before_date."""
     q = """SELECT date FROM games
@@ -265,23 +280,29 @@ def season_home_away_record(conn, league, team_id, season, home, before_date):
     return wins, losses
 
 
-def record_prediction(conn, game_id, league, date, home_team, away_team, pick_team, pick_prob):
+def record_prediction(conn, game_id, league, date, home_team, away_team, pick_team, pick_prob,
+                      card=None):
     """
     Store the model's pick for a not-yet-final game, keyed by game_id (same id used for
     apply_game once the game finishes). Safe to call again for the same game_id before it's
     graded (e.g. the daily script running twice) -- it just updates the pick. Once graded,
     the row is left alone so a later re-run can't retroactively change a scored prediction.
+    `card` (the rendered game dict) is stored alongside so get_card_snapshot can replay it
+    once the game starts.
     """
+    card_json = json.dumps(card, default=str) if card is not None else None
     conn.execute(
         """INSERT INTO predictions
-           (game_id, league, date, home_team, away_team, pick_team, pick_prob, graded, created_at)
-           VALUES (?,?,?,?,?,?,?,0,?)
+           (game_id, league, date, home_team, away_team, pick_team, pick_prob, graded, created_at,
+            card_json)
+           VALUES (?,?,?,?,?,?,?,0,?,?)
            ON CONFLICT(game_id) DO UPDATE SET
              pick_team=excluded.pick_team,
-             pick_prob=excluded.pick_prob
+             pick_prob=excluded.pick_prob,
+             card_json=excluded.card_json
            WHERE graded=0""",
         (game_id, league, date, home_team, away_team, pick_team, pick_prob,
-         datetime.utcnow().isoformat()),
+         datetime.utcnow().isoformat(), card_json),
     )
     conn.commit()
 
