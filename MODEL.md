@@ -40,7 +40,7 @@ crushing a bad team doesn't inflate its rating just for doing what was expected.
 
 | League | HOME_ADV | K-factor | MOV constants | Season regression |
 |---|---|---|---|---|
-| NBA | 40 Elo pts | 20 | offset=3.0, b=7.5, c=0.006 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
+| NBA | 40 Elo pts | 20 | offset=3.0, b=7.5, c=0.006 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season, then blended with the preseason win-total prior (below) |
 | NFL | 24 Elo pts | 20 | a=2.2, b=0.001 | new = 0.75 × old + 0.25 × 1500, applied once at the first game of each new season |
 
 These are standard starting points used by public Elo sports models (not derived from a formal
@@ -48,6 +48,27 @@ grid search on this data), chosen so ratings are transparent and stable rather t
 over-fit. Season regression exists because rosters change materially between seasons — it pulls
 every team 25% of the way back toward the 1500 mean before the new season's games are replayed,
 so an early-season game a team wins isn't over-explained by two-year-old form.
+
+**NBA preseason prior** (added 2026-10-23). Regression alone doesn't know about offseason
+trades or players returning from injury, so Elo took ~20 games to catch up to a reshaped roster.
+At the first game of each NBA season the regressed rating is now blended with a rating implied
+by the team's sportsbook preseason win-total line (`data/nba_win_totals.json`):
+
+```
+p        = win_total_line / season_games            # 72 for 2020-21, else 82
+raw      = 400 * log10(p / (1 - p))                  # Elo gap vs a .500 team
+prior    = 1500 + raw - mean(raw over all 30 teams)
+start    = 0.25 * regressed_elo + 0.75 * prior       # PRIOR_WEIGHT_ELO
+```
+
+Backtest (replay of stored 2019-20 to 2025-26 games, log loss of the pre-game probability):
+each team's first 20 games 0.6309 -> 0.6212 (accuracy 63.4% -> 65.0%), full season 0.6257 ->
+0.6222. Improved the first-20 window in all 7 seasons; leave-one-season-out (weight chosen on
+the other 6) still improved pooled 0.6309 -> 0.6228. Any weight from 0 to 0.5 on Elo scored
+about the same, so 0.25 isn't a knife-edge choice. Seasons without a full set of 30 lines fall
+back to plain regression (logged as a warning). **Upkeep:** add each new season's lines to
+`data/nba_win_totals.json` before opening night; the data is part of `constants_signature()`,
+so editing it triggers the automatic rebuild. NFL has no prior yet.
 
 **Home advantage** was retuned 2026-10-15 (from NBA 100 / NFL 48). It's the one constant
 that *was* checked against this data: replaying every stored game under a grid of values

@@ -10,15 +10,64 @@ The SQLite database (team_ratings.db, path given by caller) holds three tables:
         -- log and to make replays idempotent (a game_id is only ever applied once).
   meta(key, value)                              -- small key/value store, e.g. last season seen
 """
+import hashlib
 import json
+import logging
 import math
+import os
 import sqlite3
 from datetime import datetime
+
+log = logging.getLogger(__name__)
 
 HOME_ADV = {"NBA": 40, "NFL": 24}
 K_FACTOR = {"NBA": 20, "NFL": 20}
 SEASON_REGRESSION = 0.75  # new = REGRESSION * old + (1 - REGRESSION) * 1500
 START_RATING = 1500.0
+
+# NBA preseason prior (added 2026-10-23): at each new season, the regressed rating is blended
+# with a rating implied by the sportsbook preseason win-total line, so offseason roster moves
+# show up from game 1 instead of after ~20 games. new = W * regressed + (1 - W) * prior.
+# W chosen by log-loss backtest, see MODEL.md section 1.
+PRIOR_WEIGHT_ELO = {"NBA": 0.25}
+WIN_TOTALS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "data", "nba_win_totals.json")
+_win_totals = None
+_prior_cache = {}
+
+
+def _load_win_totals():
+    global _win_totals
+    if _win_totals is None:
+        try:
+            with open(WIN_TOTALS_PATH) as f:
+                _win_totals = json.load(f)
+        except (OSError, ValueError) as e:
+            log.warning("Could not load %s: %s", WIN_TOTALS_PATH, e)
+            _win_totals = {"lines": {}, "games": {}}
+    return _win_totals
+
+
+def season_prior(league, season):
+    """{team_id: prior rating} for a season from its preseason win totals, centered on
+    START_RATING, or None if that season has no full set of lines (falls back to plain
+    regression)."""
+    if league not in PRIOR_WEIGHT_ELO or not season:
+        return None
+    key = (league, season)
+    if key not in _prior_cache:
+        wt = _load_win_totals()
+        lines = wt["lines"].get(season)
+        if not lines or len(lines) != 30:
+            log.warning("No full %s win-total lines for season %s; using plain regression",
+                        league, season)
+            _prior_cache[key] = None
+        else:
+            games = wt["games"].get(season, 82)
+            raw = {t: 400 * math.log10((l / games) / (1 - l / games)) for t, l in lines.items()}
+            mean = sum(raw.values()) / len(raw)
+            _prior_cache[key] = {t: START_RATING + r - mean for t, r in raw.items()}
+    return _prior_cache[key]
 
 # Margin-of-victory multiplier on K, FiveThirtyEight's published NFL/NBA Elo formulas.
 # Damped by winner_elo_diff (pre-game rating gap in the winner's favor) so a big favorite
@@ -113,6 +162,10 @@ def _maybe_regress_for_new_season(conn, league, team_id, season):
     rating, last_regressed = row
     if season and last_regressed != season:
         new_rating = SEASON_REGRESSION * rating + (1 - SEASON_REGRESSION) * START_RATING
+        prior = season_prior(league, season)
+        if prior and team_id in prior:
+            w = PRIOR_WEIGHT_ELO[league]
+            new_rating = w * new_rating + (1 - w) * prior[team_id]
         conn.execute(
             "UPDATE teams SET rating=?, last_season_regressed=? WHERE league=? AND team_id=?",
             (new_rating, season, league, team_id),
@@ -187,7 +240,9 @@ def apply_game(conn, league, game_id, season, date, home_team, away_team,
 def constants_signature():
     """Fingerprint of every constant that shapes stored ratings -- if it changes, the
     stored ratings were built under different rules and need a full rebuild."""
-    return repr((HOME_ADV, K_FACTOR, MOV_CONSTANTS, SEASON_REGRESSION, START_RATING))
+    wt = json.dumps(_load_win_totals()["lines"], sort_keys=True)
+    return repr((HOME_ADV, K_FACTOR, MOV_CONSTANTS, SEASON_REGRESSION, START_RATING,
+                 PRIOR_WEIGHT_ELO, hashlib.sha1(wt.encode()).hexdigest()))
 
 
 def rebuild_ratings(conn):
