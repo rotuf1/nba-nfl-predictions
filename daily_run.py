@@ -49,7 +49,14 @@ NBA_INJURY_CAP = -250
 
 NFL_VALUE_SCALE = 1.5
 NFL_INJURY_FALLBACK_OUT = -6
-NFL_INJURY_CAP = -50
+NFL_INJURY_CAP = -150
+# QBs get their own, much larger scale: a starting QB swing moves NFL lines several
+# points, far more than his fantasy-style score at the skill-position scale would say
+# (2026-10-26: Hurts at 1.5x was only -24 Elo, ~1 point). At ~25 Elo per NFL point, 5x
+# puts a mid-season Hurts (score ~16) at ~3 points and an elite QB (~22) at ~4.5.
+# Heuristic, not fit -- no stored injury history to fit against. The cap was raised
+# from -50 so a QB absence plus a couple of skill players isn't clipped.
+NFL_QB_VALUE_SCALE = 5.0
 
 DOUBTFUL_WEIGHT = 0.5
 
@@ -65,6 +72,13 @@ DOUBTFUL_WEIGHT = 0.5
 # groups (real near-term dates topped out at 70 days out; the placeholder is ~154 days
 # out) as of 2026-09.
 SHORT_TERM_IR_MAX_DAYS = 90
+
+# ...except a season-ending IR player who was playing until very recently: Elo has only
+# seen a game or two without him, so his absence is NOT baked in yet (2026-10-26: Hurts
+# went on season-ending IR after one missed game and the model ignored him entirely).
+# Such a player counts at weight 1 - (team games played since his last game) / N,
+# fading to 0 once the team has played N games without him and Elo has caught up.
+LONG_TERM_IR_PHASE_IN_GAMES = {"NBA": 10, "NFL": 4}
 
 RECENT_FORM_GAMES = 10
 SCOREBOARD_RETRY_ATTEMPTS = 3
@@ -161,7 +175,8 @@ def player_out_penalty(league, athlete_id, position):
     score = player_value.nfl_production_score(stats, position)
     if score is None:
         return NFL_INJURY_FALLBACK_OUT
-    return -max(score, 0.0) * NFL_VALUE_SCALE
+    scale = NFL_QB_VALUE_SCALE if position == "QB" else NFL_VALUE_SCALE
+    return -max(score, 0.0) * scale
 
 
 def _is_short_term_ir(entry, game_date_iso):
@@ -179,7 +194,22 @@ def _is_short_term_ir(entry, game_date_iso):
     return days_out <= SHORT_TERM_IR_MAX_DAYS
 
 
-def injury_adjustment(league, espn_team_id, game_date_iso):
+def _long_term_ir_weight(conn, league, team_abbr, entry, game_date_iso):
+    """Weight (0-1) for a season-ending IR player: 1 - (team games since his last game
+    this season) / LONG_TERM_IR_PHASE_IN_GAMES, or 0 if he hasn't played this season or
+    Elo has had enough games to absorb his absence. See LONG_TERM_IR_PHASE_IN_GAMES."""
+    if conn is None or team_abbr is None:
+        return 0.0
+    last_played = espn.get_athlete_last_game_date(league, entry.get("athlete_id"))
+    if last_played is None:
+        return 0.0
+    n = LONG_TERM_IR_PHASE_IN_GAMES[league]
+    games_since = len([g for g in elo.recent_games(conn, league, team_abbr, game_date_iso, limit=n)
+                       if g[0] > last_played])
+    return max(1.0 - games_since / n, 0.0)
+
+
+def injury_adjustment(league, espn_team_id, game_date_iso, conn=None, team_abbr=None):
     """
     Returns (adjustment_points, injuries, ok_bool).
     `injuries` is every reported injury relevant to *today's game* -- Out, Doubtful,
@@ -205,9 +235,14 @@ def injury_adjustment(league, espn_team_id, game_date_iso):
     for i in injuries:
         status = (i.get("status") or "").lower()
         if status == "injured reserve":
-            if not _is_short_term_ir(i, game_date_iso):
-                continue  # long-term/season-ending: not today's-game news, drop entirely
-            weight = 1.0
+            if _is_short_term_ir(i, game_date_iso):
+                weight = 1.0
+            else:
+                # long-term/season-ending: drop entirely unless he was lost so recently
+                # that Elo hasn't absorbed it yet
+                weight = _long_term_ir_weight(conn, league, team_abbr, i, game_date_iso)
+                if weight <= 0:
+                    continue
         elif status == "doubtful":
             weight = DOUBTFUL_WEIGHT
         elif status == "out":
@@ -360,8 +395,10 @@ def process_league(league, conn, today_et, odds_key, warnings):
         home_rest_adj, home_rest_note = rest_adjustment(league, conn, home_abbr, date_iso)
         away_rest_adj, away_rest_note = rest_adjustment(league, conn, away_abbr, date_iso)
 
-        home_inj_adj, home_injuries, home_inj_ok = injury_adjustment(league, team_ids.get(home_abbr), date_iso)
-        away_inj_adj, away_injuries, away_inj_ok = injury_adjustment(league, team_ids.get(away_abbr), date_iso)
+        home_inj_adj, home_injuries, home_inj_ok = injury_adjustment(league, team_ids.get(home_abbr), date_iso,
+                                                                     conn, home_abbr)
+        away_inj_adj, away_injuries, away_inj_ok = injury_adjustment(league, team_ids.get(away_abbr), date_iso,
+                                                                     conn, away_abbr)
         if not (home_inj_ok and away_inj_ok):
             warnings.append(f"{league} {away_abbr}@{home_abbr}: injury report unavailable for "
                              f"one or both teams; injury adjustment skipped where missing.")

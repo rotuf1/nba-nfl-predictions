@@ -7,10 +7,14 @@ log that and fall back (e.g. to a web search) rather than guess.
 """
 import logging
 import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import requests
 
 log = logging.getLogger(__name__)
+
+ET = ZoneInfo("America/New_York")
 
 SPORT_PATH = {
     "NBA": "basketball/nba",
@@ -273,6 +277,42 @@ def get_athlete_season_stats(league, athlete_id):
     except (KeyError, TypeError, ZeroDivisionError) as e:
         log.warning("Failed to parse ESPN athlete stats for %s athlete %s: %s", league, athlete_id, e)
         return None
+
+
+def get_athlete_last_game_date(league, athlete_id):
+    """
+    ET date (YYYY-MM-DD) of the player's most recent regular/postseason game this
+    season, or None if he hasn't played one (or on failure). Preseason games are
+    ignored. Used to tell a just-placed season-ending IR player (absence not yet in
+    Elo) from one who has been out a while.
+    """
+    if athlete_id is None:
+        return None
+    url = f"https://site.web.api.espn.com/apis/common/v3/sports/{SPORT_PATH[league]}/athletes/{athlete_id}/gamelog"
+    try:
+        resp = requests.get(url, timeout=TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, ValueError) as e:
+        log.warning("ESPN gamelog fetch failed for %s athlete %s: %s", league, athlete_id, e)
+        return None
+    try:
+        event_ids = set()
+        for st in data.get("seasonTypes", []):
+            if "preseason" in (st.get("displayName") or "").lower():
+                continue
+            for cat in st.get("categories", []):
+                for ev in cat.get("events", []):
+                    event_ids.add(str(ev.get("eventId")))
+        dates = [
+            datetime.fromisoformat(ev["gameDate"].replace("Z", "+00:00")).astimezone(ET).date()
+            for eid, ev in (data.get("events") or {}).items()
+            if eid in event_ids and ev.get("gameDate")
+        ]
+    except (KeyError, TypeError, ValueError) as e:
+        log.warning("Failed to parse ESPN gamelog for %s athlete %s: %s", league, athlete_id, e)
+        return None
+    return max(dates).isoformat() if dates else None
 
 
 def get_scoreboard_team_ids(league, scoreboard_json):

@@ -119,6 +119,13 @@ weeks as of 2026-09) means short-term/designated-to-return; their generic season
 placeholder date (empirically, always ~5+ months out) means long-term — see
 `SHORT_TERM_IR_MAX_DAYS` / `_is_short_term_ir()` in `daily_run.py`.
 
+One exception to excluding season-ending IR (added 2026-10-26, after Jalen Hurts went on
+season-ending IR having missed only one game and the model ignored him): if the player played a
+regular-season game *this season*, his absence is phased in at weight
+`1 - (team games since his last game) / N`, with N = **4** (NFL) / **10** (NBA). Once his team has
+played N games without him, Elo has absorbed it and he drops out as before. The player's last game
+date comes from his ESPN gamelog -- see `LONG_TERM_IR_PHASE_IN_GAMES` / `_long_term_ir_weight()`.
+
 **NBA** — [Hollinger Game Score](https://en.wikipedia.org/wiki/Game_score), a well-known public
 box-score formula (not invented for this project), from the player's per-game averages this
 season (or last season, until the new one has games in the books):
@@ -147,15 +154,19 @@ scoring convention, just repurposed here as a value proxy, not invented for this
 score = pass_yds*0.04 + pass_td*4 - pass_int*2
       + rush_yds*0.1  + rush_td*6
       + rec_yds*0.1   + rec_td*6  + rec*0.5      (each line only if that stat category exists)
-elo_penalty = -max(score, 0) * 1.5              # NFL_VALUE_SCALE
+elo_penalty = -max(score, 0) * 1.5              # NFL_VALUE_SCALE (QBs: 5.0, NFL_QB_VALUE_SCALE)
 ```
+
+QBs use a separate, larger scale (5.0, since 2026-10-26): a starting-QB swing moves NFL lines
+several points, which the 1.5 skill-position scale priced at ~1 point. At ~25 Elo per NFL point,
+a mid-season Hurts (score ~16) is ~3 points and an elite QB (~22) ~4.5. Heuristic, not fit.
 
 **Fallback**: if a player's stats can't be fetched (missing athlete id, ESPN request failure),
 or — NFL only — the player's position isn't one of the skill positions above (line, defense,
 specialists have no comparably clean free per-game production stat), a flat penalty is used
 instead: **-15** (NBA) / **-6** (NFL). A **Doubtful** player's penalty (computed the same way) is
 multiplied by **0.5** before being added in. The total per team is capped at **-250** (NBA) /
-**-50** (NFL) so a cluster of injuries can't blow past a sane bound.
+**-150** (NFL; -50 before 2026-10-26) so a cluster of injuries can't blow past a sane bound.
 
 **Questionable** is shown but doesn't move the number at all.
 
