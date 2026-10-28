@@ -126,6 +126,13 @@ regular-season game *this season*, his absence is phased in at weight
 played N games without him, Elo has absorbed it and he drops out as before. The player's last game
 date comes from his ESPN gamelog -- see `LONG_TERM_IR_PHASE_IN_GAMES` / `_long_term_ir_weight()`.
 
+**Manual overrides** (`data/injury_overrides.json`, added 2026-10-26): ESPN's feed can drop a player
+outright -- Hurts vanished from it hours before DAL@PHI kicked off, so the last pre-kickoff run
+recorded PHI without him. Entries in this file (league -> team abbr -> list of {name, athlete_id,
+position, status, return_date, optional until}) are merged into that team's ESPN injuries unless ESPN
+already lists the same athlete id, then handled exactly like feed entries. Season-ending IR entries
+fade out on their own; use `until` to expire an Out entry.
+
 **NBA** — [Hollinger Game Score](https://en.wikipedia.org/wiki/Game_score), a well-known public
 box-score formula (not invented for this project), from the player's per-game averages this
 season (or last season, until the new one has games in the books):

@@ -6,6 +6,7 @@ Core rule: if there are zero NBA games and zero NFL games today, this does nothi
 at all -- no /docs change, no commit, no push, no output beyond a log line. See
 handle-zero-games logic in main().
 """
+import json
 import logging
 import os
 import subprocess
@@ -79,6 +80,11 @@ SHORT_TERM_IR_MAX_DAYS = 90
 # Such a player counts at weight 1 - (team games played since his last game) / N,
 # fading to 0 once the team has played N games without him and Elo has caught up.
 LONG_TERM_IR_PHASE_IN_GAMES = {"NBA": 10, "NFL": 4}
+
+# Manual injury entries merged into ESPN's feed. ESPN sometimes drops a player outright
+# (2026-10-26: Hurts vanished from the feed hours before kickoff, so the 6:35pm run
+# re-recorded PHI without him). Format documented in the file itself.
+INJURY_OVERRIDES_PATH = os.path.join("data", "injury_overrides.json")
 
 RECENT_FORM_GAMES = 10
 SCOREBOARD_RETRY_ATTEMPTS = 3
@@ -209,6 +215,18 @@ def _long_term_ir_weight(conn, league, team_abbr, entry, game_date_iso):
     return max(1.0 - games_since / n, 0.0)
 
 
+def injury_overrides(league, team_abbr, game_date_iso):
+    """Manual entries for this team from INJURY_OVERRIDES_PATH that haven't expired.
+    Never raises -- a missing or malformed file just means no overrides."""
+    try:
+        with open(INJURY_OVERRIDES_PATH) as f:
+            entries = json.load(f).get(league, {}).get(team_abbr, [])
+    except (OSError, ValueError, AttributeError) as e:
+        log.warning("Could not read %s: %s", INJURY_OVERRIDES_PATH, e)
+        return []
+    return [e for e in entries if not e.get("until") or e["until"] >= game_date_iso]
+
+
 def injury_adjustment(league, espn_team_id, game_date_iso, conn=None, team_abbr=None):
     """
     Returns (adjustment_points, injuries, ok_bool).
@@ -228,6 +246,9 @@ def injury_adjustment(league, espn_team_id, game_date_iso, conn=None, team_abbr=
     injuries = espn.get_team_injuries(league, espn_team_id)
     if injuries is None:
         return 0.0, [], False
+    listed = {i.get("athlete_id") for i in injuries}
+    injuries = injuries + [o for o in injury_overrides(league, team_abbr, game_date_iso)
+                           if o.get("athlete_id") not in listed]
 
     cap = NBA_INJURY_CAP if league == "NBA" else NFL_INJURY_CAP
     total = 0.0

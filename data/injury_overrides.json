@@ -1,0 +1,10 @@
+{
+  "_comment": "Manual injury entries merged into ESPN's feed by daily_run.py (see MODEL.md section 3). Use when ESPN drops or misses a player. Keyed league -> team abbr. Optional 'until' (YYYY-MM-DD, inclusive) expires an entry; season-ending IR entries fade out on their own via LONG_TERM_IR_PHASE_IN_GAMES.",
+  "NFL": {
+    "PHI": [
+      {"name": "Jalen Hurts", "athlete_id": "4040715", "position": "QB", "status": "Injured Reserve",
+       "return_date": "2027-02-15", "note": "Blood clots in lungs, out for season (2026-10-19). ESPN dropped him from its feed 2026-10-26."}
+    ]
+  },
+  "NBA": {}
+}
