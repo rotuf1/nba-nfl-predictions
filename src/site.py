@@ -160,7 +160,56 @@ def render_record(record):
             f'(correct picks vs. incorrect, final games only)</span> {" · ".join(parts)}</div>')
 
 
-def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None):
+def render_props(props_data):
+    """NBA player-prop section (src/props.py's run() output), or "" if there's nothing."""
+    if not props_data or not (props_data["picks"] or props_data["projections"]):
+        return ""
+    rec = props_data["record"]
+    rec_html = ""
+    if rec["wins"] + rec["losses"]:
+        rec_html = (f'<div class="record"><span class="section-title">Prop record (graded overs, '
+                    f'1 unit each at DraftKings prices)</span> {fmt_record(rec["wins"], rec["losses"])} · '
+                    f'{rec["units"]:+.1f} units</div>')
+
+    picks_html = ""
+    if props_data["picks"]:
+        result_badge = {"win": '<span class="res-win">✓</span>', "loss": '<span class="res-loss">✗</span>',
+                        "void": '<span class="res-void">void</span>'}
+        rows = "".join(
+            f"<tr><td><strong>{esc(p['player'])}</strong> <span class=\"muted\">{esc(p['team'])}</span></td>"
+            f"<td>Over {p['line']:g} {esc(p['stat'])}</td><td>{fmt_odds(p['price'])}</td>"
+            f"<td>{p['proj']:.1f}</td><td>{p['prob'] * 100:.0f}%</td>"
+            f"<td>{result_badge.get(p['result'], '')}"
+            f"{'' if p['actual'] is None else ' ' + format(p['actual'], 'g')}</td>"
+            f"<td class=\"muted\">{esc(p['matchup'])}</td></tr>"
+            for p in props_data["picks"]
+        )
+        picks_html = (f'<div class="table-wrap"><table class="props"><thead><tr><th>Player</th><th>Pick</th>'
+                      f'<th>DK</th><th>Proj</th><th>Chance</th><th>Result</th><th>Game</th></tr></thead>'
+                      f'<tbody>{rows}</tbody></table></div>')
+
+    proj_html = ""
+    if props_data["projections"]:
+        blocks = "".join(
+            f'<div class="proj-game"><div class="section-title">{esc(g["matchup"])} · {esc(g["tipoff"])}</div>'
+            f'<table class="props"><thead><tr><th>Player</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th>'
+            f'</tr></thead><tbody>'
+            + "".join(f"<tr><td>{esc(p['name'])} <span class=\"muted\">{esc(p['team'])}</span></td>"
+                      f"<td>{p['min']:.0f}</td><td>{p['proj']['PTS']:.1f}</td><td>{p['proj']['REB']:.1f}</td>"
+                      f"<td>{p['proj']['AST']:.1f}</td></tr>" for p in g["players"])
+            + "</tbody></table></div>"
+            for g in props_data["projections"]
+        )
+        proj_html = (f'<details class="proj"><summary>Projections for games without DraftKings lines yet '
+                     f'({len(props_data["projections"])})</summary>{blocks}</details>')
+
+    return (f'<h2>NBA player props <span class="badge badge-final">experimental</span></h2>'
+            f'<p class="props-note">Overs only. My projection from ESPN season averages, blended 50/50 '
+            f'with DraftKings\' no-vig price ("Chance"). Lines are pulled within ~6 hours of tip, '
+            f'as odds-API credits allow. See MODEL.md section 8.</p>{rec_html}{picks_html}{proj_html}')
+
+
+def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None, props_data=None):
     warnings = warnings or []
     warnings_html = ""
     if warnings:
@@ -174,7 +223,7 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None
         cards = "".join(render_game_card(g) for g in games)
         return f'<h2>{esc(title)}</h2><div class="cards">{cards}</div>'
 
-    body_sections = section("NFL", nfl_games) + section("NBA", nba_games)
+    body_sections = section("NFL", nfl_games) + section("NBA", nba_games) + render_props(props_data)
 
     return f"""<!doctype html>
 <html lang="en">
@@ -269,6 +318,18 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None
   .injury-team {{ font-weight: 600; margin-right: 4px; }}
   .injury-group ul {{ margin: 2px 0 6px 0; padding-left: 18px; }}
   .injury-group li {{ line-height: 1.35; }}
+  .props-note {{ font-size: 0.85rem; color: var(--muted); margin: 8px 0 12px; }}
+  .table-wrap {{ overflow-x: auto; }}
+  table.props {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; background: var(--card-bg); }}
+  table.props th, table.props td {{ padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }}
+  table.props th {{ font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }}
+  .muted {{ color: var(--muted); font-size: 0.8rem; }}
+  .res-win {{ color: var(--pos); font-weight: 700; }}
+  .res-loss {{ color: var(--neg); font-weight: 700; }}
+  .res-void {{ color: var(--muted); }}
+  details.proj {{ margin-top: 14px; }}
+  details.proj summary {{ cursor: pointer; color: var(--accent); font-size: 0.9rem; }}
+  .proj-game {{ margin-top: 12px; overflow-x: auto; }}
   footer {{ margin-top: 2em; color: var(--muted); font-size: 0.8rem; text-align: center; }}
 </style>
 </head>

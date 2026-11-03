@@ -100,3 +100,61 @@ def match_game(odds_list, home_name, away_name):
         if (h in home_name or home_name in h) and (a in away_name or away_name in a):
             return ev
     return None
+
+
+def get_events(league, api_key):
+    """
+    (events, credits_remaining) -- upcoming events [{id, home_team, away_team,
+    commence_time}] for a league. This endpoint costs no credits; the remaining-credit
+    count comes from the response headers (None if absent). (None, None) on failure.
+    """
+    sport = SPORT_KEY.get(league)
+    if not sport or not api_key:
+        return None, None
+    try:
+        resp = requests.get(f"{BASE_URL}/{sport}/events", params={"apiKey": api_key}, timeout=TIMEOUT)
+        resp.raise_for_status()
+        events = resp.json()
+    except (requests.RequestException, ValueError) as e:
+        log.error("the-odds-api events fetch failed for %s: %s", league, e)
+        return None, None
+    return events, _remaining(resp)
+
+
+def get_player_props(league, api_key, event_id, markets):
+    """
+    (props, credits_remaining) for one event, DraftKings only. props is
+    [{player, market, line, over, under}] with American prices. Costs one credit per
+    market. (None, None) on failure.
+    """
+    sport = SPORT_KEY.get(league)
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/{sport}/events/{event_id}/odds",
+            params={"apiKey": api_key, "bookmakers": "draftkings", "markets": ",".join(markets),
+                    "oddsFormat": "american"},
+            timeout=TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, ValueError) as e:
+        log.error("the-odds-api player props fetch failed for %s event %s: %s", league, event_id, e)
+        return None, None
+    by_key = {}
+    for bk in data.get("bookmakers", []):
+        if bk.get("key") != "draftkings":
+            continue
+        for market in bk.get("markets", []):
+            for o in market.get("outcomes", []):
+                key = (o.get("description"), market.get("key"), o.get("point"))
+                entry = by_key.setdefault(key, {"player": key[0], "market": key[1], "line": key[2]})
+                entry[(o.get("name") or "").lower()] = o.get("price")
+    props = [p for p in by_key.values() if p.get("over") is not None and p.get("under") is not None]
+    return props, _remaining(resp)
+
+
+def _remaining(resp):
+    try:
+        return int(float(resp.headers.get("x-requests-remaining")))
+    except (TypeError, ValueError):
+        return None

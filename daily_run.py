@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
 
-from src import elo, espn, kalshi, odds_api, player_value, polymarket, seasons, site
+from src import elo, espn, kalshi, odds_api, player_value, polymarket, props, seasons, site
 
 ET = ZoneInfo("America/New_York")
 DB_PATH = "team_ratings.db"
@@ -516,6 +516,9 @@ def process_league(league, conn, today_et, odds_key, warnings):
             "why": why,
             "home_injuries": home_injuries, "home_injuries_ok": home_inj_ok,
             "away_injuries": away_injuries, "away_injuries_ok": away_inj_ok,
+            # for src/props.py
+            "event_id": ev["event_id"], "date_utc": ev.get("date_utc"), "state": ev["state"],
+            "home_team_id": team_ids.get(home_abbr), "away_team_id": team_ids.get(away_abbr),
         }
 
         if ev["state"] == "pre":
@@ -531,7 +534,8 @@ def process_league(league, conn, today_et, odds_key, warnings):
             # status and score.
             snapshot = elo.get_card_snapshot(conn, game_id)
             if snapshot:
-                game = {**snapshot, "status": game["status"], "final_score": game["final_score"]}
+                game = {**snapshot, "status": game["status"], "final_score": game["final_score"],
+                        "state": game["state"]}
 
         games.append(game)
 
@@ -571,6 +575,14 @@ def main():
         "NFL": elo.get_prediction_record(conn, "NFL"),
         "NBA": elo.get_prediction_record(conn, "NBA"),
     }
+    props_data = None
+    if nba_games:
+        try:
+            props_data = props.run(conn, nba_games, seasons.season_for("NBA", today_et), now_et,
+                                   odds_key, warnings)
+        except Exception:  # props are experimental -- never let them block the game picks
+            log.exception("NBA props failed; publishing without them.")
+            warnings.append("NBA props: failed this run (see logs).")
     conn.close()
 
     if nfl_games is None or nba_games is None:
@@ -585,7 +597,7 @@ def main():
 
     os.makedirs(DOCS_DIR, exist_ok=True)
     updated_str = now_et.strftime("%Y-%m-%d %-I:%M %p")
-    html = site.render_page(nba_games, nfl_games, updated_str, warnings, record)
+    html = site.render_page(nba_games, nfl_games, updated_str, warnings, record, props_data)
     with open(os.path.join(DOCS_DIR, "index.html"), "w") as f:
         f.write(html)
     log.info("Wrote %s with %d NFL and %d NBA game(s).",

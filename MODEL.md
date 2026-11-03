@@ -265,6 +265,30 @@ from the 8:45am run for 9:30am ET NFL international games. The running
 correct/incorrect count (overall and per league) is shown on the site above the game cards. See
 `record_prediction()` / `grade_prediction()` / `get_prediction_record()` in `src/elo.py`.
 
+## 8. NBA player props (experimental, added 2026-11-03)
+
+`src/props.py`, shown in its own section below the game cards. Overs only.
+
+- **Projection** (free, ESPN season averages, one request per player): per-minute rate for
+  points/rebounds/assists = this season's rate blended with last season's worth 400 minutes
+  (`K_MIN`); minutes = this season's average blended with last season's worth 1 game
+  (`K_GAMES`); projection = rate x minutes. Players with no games this season, or listed on the
+  injury report at all (Out/IR/Doubtful/Questionable/Day-To-Day, including manual overrides),
+  are skipped.
+- **Probability of the over**: rebounds/assists negative binomial, points normal, each with
+  variance = ratio x mean (`VAR_RATIO`: 1.35 / 1.35 / 2.4). The shown "Chance" is that
+  probability averaged 50/50 with DraftKings' no-vig price.
+- **Pick rule**: over only, Chance >= 56%, model within 20 points of DK (bigger gaps are
+  usually news the model lacks), top 4 per game. Re-picked on every run until tip, then locked.
+- **Lines and credits**: DK lines come from the-odds-api (3 credits per game: points, rebounds,
+  assists), fetched once per game within 6 hours of tip. Each run, today's allowance is
+  `(remaining + spent_today - 10 x days_left_in_month) / days_left - spent_today`, so props never
+  eat the credits the moneyline odds need. Games without lines still show projections.
+- **Grading**: from ESPN box scores once final; win if actual > line. DNP or ungraded after 4
+  days = void. Record shown as W-L and units (1 unit per pick at the DK price).
+- **Not modeled**: opponent defense/pace, teammates' absences boosting usage, back-to-backs,
+  blowouts.
+
 ## Data sources
 
 - Historical results: [nflverse](https://github.com/nflverse/nfldata) `games.csv` for NFL;

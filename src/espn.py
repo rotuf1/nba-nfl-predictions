@@ -279,6 +279,82 @@ def get_athlete_season_stats(league, athlete_id):
         return None
 
 
+def get_team_roster(league, espn_team_id):
+    """[{athlete_id, name, position}] for a team, or None on failure."""
+    url = f"http://site.api.espn.com/apis/site/v2/sports/{SPORT_PATH[league]}/teams/{espn_team_id}/roster"
+    try:
+        resp = requests.get(url, timeout=TIMEOUT)
+        resp.raise_for_status()
+        return [{"athlete_id": str(a["id"]), "name": a.get("displayName", "unknown"),
+                 "position": (a.get("position") or {}).get("abbreviation")}
+                for a in resp.json().get("athletes", [])]
+    except (requests.RequestException, ValueError, KeyError, TypeError) as e:
+        log.warning("ESPN roster fetch failed for %s team %s: %s", league, espn_team_id, e)
+        return None
+
+
+def get_nba_season_averages(athlete_id):
+    """
+    {season_year: {"gp","min","pts","reb","ast"}} per-game averages for every NBA season
+    ESPN lists for the player (season_year is the end year, e.g. 2027 = 2026-27), or None
+    on failure. One request covers both this season and last -- what src/props.py needs.
+    """
+    url = f"http://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/{athlete_id}/stats"
+    try:
+        resp = requests.get(url, timeout=TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, ValueError) as e:
+        log.warning("ESPN season averages fetch failed for NBA athlete %s: %s", athlete_id, e)
+        return None
+    fields = {"gamesPlayed": "gp", "avgMinutes": "min", "avgPoints": "pts",
+              "avgRebounds": "reb", "avgAssists": "ast"}
+    out = {}
+    try:
+        for cat in data.get("categories", []):
+            if cat.get("name") != "averages":
+                continue
+            names = cat.get("names") or []
+            for row in cat.get("statistics") or []:
+                year = (row.get("season") or {}).get("year")
+                vals = dict(zip(names, row.get("stats") or []))
+                season = {short: _parse_num(vals.get(name)) for name, short in fields.items()}
+                if year and all(v is not None for v in season.values()):
+                    out[year] = season
+    except (KeyError, TypeError) as e:
+        log.warning("Failed to parse ESPN season averages for NBA athlete %s: %s", athlete_id, e)
+        return None
+    return out
+
+
+def get_nba_boxscore(event_id):
+    """
+    ({athlete_id: {"min","pts","reb","ast"} or None if DNP}, state) for a game, or
+    (None, None) on failure. state is ESPN's 'pre'/'in'/'post'.
+    """
+    url = f"http://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event={event_id}"
+    try:
+        resp = requests.get(url, timeout=TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        state = data["header"]["competitions"][0]["status"]["type"]["state"]
+        players = {}
+        for team in (data.get("boxscore") or {}).get("players", []):
+            for block in team.get("statistics", []):
+                labels = block.get("labels") or []
+                for a in block.get("athletes", []):
+                    aid = str(a["athlete"]["id"])
+                    if a.get("didNotPlay") or not a.get("stats"):
+                        players[aid] = None
+                        continue
+                    row = dict(zip(labels, a["stats"]))
+                    players[aid] = {k.lower(): _parse_num(row.get(k)) for k in ("MIN", "PTS", "REB", "AST")}
+        return players, state
+    except (requests.RequestException, ValueError, KeyError, IndexError, TypeError) as e:
+        log.warning("ESPN boxscore fetch failed for NBA event %s: %s", event_id, e)
+        return None, None
+
+
 def get_athlete_last_game_date(league, athlete_id):
     """
     ET date (YYYY-MM-DD) of the player's most recent regular/postseason game this
