@@ -278,7 +278,7 @@ correct/incorrect count (overall and per league) is shown on the site above the 
 - **Probability of the over**: rebounds/assists negative binomial, points normal, each with
   variance = ratio x mean (`VAR_RATIO`: 1.35 / 1.35 / 2.4). The shown "Chance" is that
   probability averaged 50/50 with DraftKings' no-vig price.
-- **Pick rule**: over only, Chance >= 56%, model within 20 points of DK (bigger gaps are
+- **Pick rule**: over only, Chance >= 60% (nothing below 60% is shown at all), model within 20 points of DK (bigger gaps are
   usually news the model lacks), top 4 per game. Re-picked on every run until tip, then locked.
 - **Lines and credits**: DK lines come from the-odds-api (3 credits per game: points, rebounds,
   assists), fetched once per game within 6 hours of tip. Each run, today's allowance is

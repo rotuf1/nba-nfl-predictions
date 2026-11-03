@@ -58,26 +58,29 @@ def render_game_card(game):
     g = game
     pick_team = g.get("pick_team_name")
     if pick_team is not None:
-        pick_html = f'<span class="pick-team">{esc(pick_team)}</span> {fmt_pct(g["model_pick_prob"])}'
+        prob = g["model_pick_prob"]
+        pick_html = (f'<div class="pick-row"><span class="pick-big">{esc(pick_team)}</span>'
+                     f'<span class="pick-prob">{fmt_pct(prob)}</span></div>'
+                     f'<div class="conf-bar"><span style="width:{max(0, min(prob, 1)) * 100:.0f}%"></span></div>')
     else:
-        pick_html = "unavailable"
+        pick_html = '<div class="pick-row"><span class="pick-big">unavailable</span></div>'
 
     market_pick_team = g.get("market_pick_team_name")
     if market_pick_team is not None:
-        market_pick_html = (f'<span class="pick-team">{esc(market_pick_team)}</span> '
+        market_pick_html = (f'<strong>{esc(market_pick_team)}</strong> '
                              f'{fmt_pct(g["market_pick_prob"])}')
     else:
         market_pick_html = "unavailable"
 
-    edge_html = "unavailable"
+    edge_html = ""
     if g.get("edge") is not None:
         edge_pts = g["edge"] * 100
         if abs(edge_pts) < 0.5:
-            edge_html = "~0 pts — model and market roughly agree"
+            edge_html = '<span class="chip">model ≈ market</span>'
         elif g["edge"] > 0:
-            edge_html = f"+{edge_pts:.1f} pts — model is more confident than the market"
+            edge_html = f'<span class="chip chip-pos">+{edge_pts:.1f} pts vs market</span>'
         else:
-            edge_html = f"{edge_pts:.1f} pts — model is less confident than the market"
+            edge_html = f'<span class="chip chip-neg">{edge_pts:.1f} pts vs market</span>'
 
     status_badge = ""
     if g.get("status") == "final":
@@ -112,18 +115,14 @@ def render_game_card(game):
       </div>
       <div class="tipoff">{esc(g['tipoff_et_str'])} ET</div>
 
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick">{pick_html}</div>
+      <div class="pick-box">
+        <div class="pick-label">Model pick {edge_html}</div>
+        {pick_html}
       </div>
 
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick">{market_pick_html}</div>
-        <div class="odds-line">{dk_line}</div>
-        <div class="odds-line">Kalshi: {kalshi_html}</div>
-        <div class="odds-line">Polymarket: {poly_html}</div>
-        <div class="edge">Edge: {edge_html}</div>
+      <div class="section market">
+        <div>Market: {market_pick_html}</div>
+        <div class="odds-line">{dk_line} · Kalshi: {kalshi_html} · Polymarket: {poly_html}</div>
       </div>
 
       <div class="section">
@@ -131,11 +130,11 @@ def render_game_card(game):
         <ul class="why">{"".join(f"<li>{esc(b)}</li>" for b in g.get('why') or [])}</ul>
       </div>
 
-      <div class="section">
-        <div class="section-title">Injury report</div>
+      <details class="section injuries">
+        <summary class="section-title">Injury report ({len(g.get('away_injuries') or []) + len(g.get('home_injuries') or [])})</summary>
         {render_injury_group(g['away_name'], g.get('away_injuries') or [], g.get('away_injuries_ok', False))}
         {render_injury_group(g['home_name'], g.get('home_injuries') or [], g.get('home_injuries_ok', False))}
-      </div>
+      </details>
     </div>"""
 
 
@@ -167,10 +166,8 @@ def render_props(props_data):
     rec = props_data["record"]
     rec_html = ""
     if rec["wins"] + rec["losses"]:
-        profit = rec["units"] * 100
-        rec_html = (f'<div class="record"><span class="section-title">Prop record (graded overs, '
-                    f'$100 per pick at DraftKings prices)</span> {fmt_record(rec["wins"], rec["losses"])} · '
-                    f'{"+" if profit >= 0 else "-"}${abs(profit):,.0f}</div>')
+        rec_html = (f'<div class="record"><span class="section-title">Prop record (graded overs)</span> '
+                    f'{fmt_record(rec["wins"], rec["losses"])}</div>')
 
     picks_html = ""
     if props_data["picks"]:
@@ -178,8 +175,8 @@ def render_props(props_data):
                         "void": '<span class="res-void">void</span>'}
         rows = "".join(
             f"<tr><td><strong>{esc(p['player'])}</strong> <span class=\"muted\">{esc(p['team'])}</span></td>"
-            f"<td>Over {p['line']:g} {esc(p['stat'])}</td><td>{fmt_odds(p['price'])}</td>"
-            f"<td>{p['proj']:.1f}</td><td>{p['prob'] * 100:.0f}%</td>"
+            f"<td><span class=\"prop-pick\">Over {p['line']:g} {esc(p['stat'])}</span></td><td>{fmt_odds(p['price'])}</td>"
+            f"<td>{p['proj']:.1f}</td><td><strong>{p['prob'] * 100:.0f}%</strong></td>"
             f"<td>{result_badge.get(p['result'], '')}"
             f"{'' if p['actual'] is None else ' ' + format(p['actual'], 'g')}</td>"
             f"<td class=\"muted\">{esc(p['matchup'])}</td></tr>"
@@ -191,21 +188,45 @@ def render_props(props_data):
 
     proj_html = ""
     if props_data["projections"]:
-        blocks = "".join(
-            f'<div class="proj-game"><div class="section-title">{esc(g["matchup"])} · {esc(g["tipoff"])}</div>'
-            f'<table class="props"><thead><tr><th>Player</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th>'
-            f'</tr></thead><tbody>'
-            + "".join(f"<tr><td>{esc(p['name'])} <span class=\"muted\">{esc(p['team'])}</span></td>"
-                      f"<td>{p['min']:.0f}</td><td>{p['proj']['PTS']:.1f}</td><td>{p['proj']['REB']:.1f}</td>"
-                      f"<td>{p['proj']['AST']:.1f}</td></tr>" for p in g["players"])
-            + "</tbody></table></div>"
-            for g in props_data["projections"]
-        )
-        proj_html = (f'<details class="proj"><summary>Projections for games without DraftKings lines yet '
-                     f'({len(props_data["projections"])})</summary>{blocks}</details>')
+        pick_tag = '<span class="prop-pick">PICK</span>'
+        pick_dot = ' <span class="pick-dot">PICK</span>'
+
+        def player_row(pl, has_lines):
+            has_pick = any(e["pick"] for e in pl["props"])
+            if pl["props"]:
+                rows = "".join(
+                    f'<tr class="{"is-pick" if e["pick"] else ""}"><td>{esc(e["stat"])}</td>'
+                    f'<td>Over {e["line"]:g}</td><td>{fmt_odds(e["price"])}</td>'
+                    f'<td>{pl["proj"][e["stat"]]:.1f}</td><td>{e["chance"] * 100:.0f}%</td>'
+                    f'<td>{pick_tag if e["pick"] else ""}</td></tr>'
+                    for e in pl["props"])
+                body = (f'<table class="props mini"><thead><tr><th>Stat</th><th>Line</th><th>DK over</th>'
+                        f'<th>Proj</th><th>Chance</th><th></th></tr></thead><tbody>{rows}</tbody></table>')
+            else:
+                body = (f'<div class="muted no-lines">'
+                        f'{"No props at 60%+." if has_lines else "No DraftKings lines yet (pulled ~6 hours before tip)."}'
+                        f'</div>')
+            return (f'<details class="player"><summary class="prow">'
+                    f'<span class="pname">{esc(pl["name"])} <span class="muted">{esc(pl["team"])}</span>'
+                    f'{pick_dot if has_pick else ""}</span>'
+                    f'<span>{pl["min"]:.0f}</span><span>{pl["proj"]["PTS"]:.1f}</span>'
+                    f'<span>{pl["proj"]["REB"]:.1f}</span><span>{pl["proj"]["AST"]:.1f}</span></summary>'
+                    f'{body}</details>')
+
+        blocks = ""
+        for g in props_data["projections"]:
+            status = (f'{g["n_picks"]} pick{"" if g["n_picks"] == 1 else "s"}' if g["has_lines"]
+                      else "no DK lines yet")
+            blocks += (f'<details class="proj-game"><summary><span class="g-title">{esc(g["matchup"])}</span> '
+                       f'<span class="muted">{esc(g["tipoff"])} · {status}</span></summary>'
+                       f'<div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span>'
+                       f'<span>Reb</span><span>Ast</span></div>'
+                       + "".join(player_row(pl, g["has_lines"]) for pl in g["players"]) + '</details>')
+        proj_html = (f'<h3 class="sub">Player projections <span class="muted">(tap a player for their props)</span>'
+                     f'</h3>{blocks}')
 
     return (f'<h2>NBA player props <span class="badge badge-final">experimental</span></h2>'
-            f'<p class="props-note">Overs only. My projection from ESPN season averages, blended 50/50 '
+            f'<p class="props-note">Overs at 60%+ only. My projection from ESPN season averages, blended 50/50 '
             f'with DraftKings\' no-vig price ("Chance"). Lines are pulled within ~6 hours of tip, '
             f'as odds-API credits allow. See MODEL.md section 8.</p>{rec_html}{picks_html}{proj_html}')
 
@@ -243,6 +264,8 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None
     --accent: #1a56db;
     --pos: #0a7d34;
     --neg: #b91c1c;
+    --accent-soft: #e8efff;
+    --track: #dfe5f2;
   }}
   @media (prefers-color-scheme: dark) {{
     :root {{
@@ -254,6 +277,8 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None
       --accent: #6ea8fe;
       --pos: #4ade80;
       --neg: #f87171;
+      --accent-soft: #1b2740;
+      --track: #2c3a55;
     }}
   }}
   * {{ box-sizing: border-box; }}
@@ -309,10 +334,21 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None
   .tipoff {{ color: var(--muted); font-size: 0.85rem; margin-bottom: 10px; }}
   .section {{ margin-top: 10px; }}
   .section-title {{ font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 3px; }}
-  .pick {{ font-size: 1.05rem; }}
-  .pick-team {{ font-weight: 700; }}
-  .edge {{ font-size: 0.85rem; color: var(--accent); margin-top: 4px; }}
-  .odds-line {{ font-size: 0.88rem; }}
+  .pick-box {{ background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px; margin-top: 4px; }}
+  .pick-label {{ font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 6px; }}
+  .pick-row {{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 4px; }}
+  .pick-big {{ font-size: 1.35rem; font-weight: 800; line-height: 1.2; }}
+  .pick-prob {{ font-size: 1.35rem; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }}
+  .conf-bar {{ height: 6px; background: var(--track); border-radius: 3px; margin-top: 8px; overflow: hidden; }}
+  .conf-bar span {{ display: block; height: 100%; background: var(--accent); }}
+  .chip {{ font-size: 0.68rem; font-weight: 600; text-transform: none; letter-spacing: 0; padding: 2px 7px; border-radius: 10px; background: var(--card-bg); color: var(--muted); white-space: nowrap; }}
+  .chip-pos {{ color: var(--pos); }}
+  .chip-neg {{ color: var(--neg); }}
+  .market {{ font-size: 0.85rem; color: var(--muted); }}
+  .market strong {{ color: var(--text); }}
+  details.injuries summary {{ cursor: pointer; }}
+  .prop-pick {{ background: var(--accent-soft); color: var(--accent); font-weight: 700; padding: 2px 8px; border-radius: 6px; }}
+  .odds-line {{ font-size: 0.8rem; color: var(--muted); margin-top: 2px; }}
   .why {{ font-size: 0.88rem; color: var(--text); line-height: 1.4; margin: 0; padding-left: 18px; }}
   .why li {{ margin-bottom: 3px; }}
   .injury-group {{ font-size: 0.85rem; margin-top: 4px; }}
@@ -328,9 +364,24 @@ def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None
   .res-win {{ color: var(--pos); font-weight: 700; }}
   .res-loss {{ color: var(--neg); font-weight: 700; }}
   .res-void {{ color: var(--muted); }}
-  details.proj {{ margin-top: 14px; }}
-  details.proj summary {{ cursor: pointer; color: var(--accent); font-size: 0.9rem; }}
-  .proj-game {{ margin-top: 12px; overflow-x: auto; }}
+  h3.sub {{ font-size: 1rem; margin: 1.4em 0 8px; }}
+  details.proj-game {{ background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }}
+  details.proj-game > summary {{ cursor: pointer; font-size: 0.95rem; }}
+  .g-title {{ font-weight: 700; }}
+  .prow {{ display: grid; grid-template-columns: minmax(0, 1fr) 2.6rem 2.8rem 2.8rem 2.8rem; gap: 4px; align-items: center; padding: 7px 4px; font-size: 0.88rem; font-variant-numeric: tabular-nums; }}
+  .prow > span:not(.pname) {{ text-align: right; }}
+  .prow-head {{ font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border-bottom: 1px solid var(--border); margin-top: 8px; }}
+  details.player {{ border-bottom: 1px solid var(--border); }}
+  details.player > summary {{ cursor: pointer; list-style: none; }}
+  details.player > summary::-webkit-details-marker {{ display: none; }}
+  details.player > summary .pname::before {{ content: "▸ "; color: var(--muted); }}
+  details.player[open] > summary .pname::before {{ content: "▾ "; }}
+  details.player[open] > summary {{ background: var(--accent-soft); border-radius: 6px; }}
+  .pname {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+  .pick-dot {{ font-size: 0.62rem; font-weight: 800; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; margin-left: 4px; }}
+  table.props.mini {{ margin: 6px 0 10px; font-size: 0.82rem; }}
+  table.props.mini tr.is-pick td {{ background: var(--accent-soft); font-weight: 700; }}
+  .no-lines {{ padding: 4px 4px 10px 18px; }}
   footer {{ margin-top: 2em; color: var(--muted); font-size: 0.8rem; text-align: center; }}
 </style>
 </head>

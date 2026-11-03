@@ -31,13 +31,13 @@ K_GAMES = 1
 # points normal with variance = ratio * mean (sd ~7 for a 20-ppg scorer).
 VAR_RATIO = {"PTS": 2.4, "REB": 1.35, "AST": 1.35}
 
-# A pick is an over whose probability (model blended 50/50 with DK's no-vig price) is at
-# least MIN_BLEND, where model and DK disagree by at most MAX_DISAGREEMENT (bigger gaps are
+# Only overs whose probability (model blended 50/50 with DK's no-vig price) is at least
+# MIN_BLEND are shown at all; a pick is one of those where model and DK disagree by at most MAX_DISAGREEMENT (bigger gaps are
 # almost always news the model doesn't have, like a role change).
-MIN_BLEND = 0.56
+MIN_BLEND = 0.60
 MAX_DISAGREEMENT = 0.20
 MAX_PICKS_PER_GAME = 4
-PROJECTED_PLAYERS_PER_GAME = 6
+PROJECTED_PLAYERS_PER_GAME = 8  # plus anyone else DK has lines for
 GRADE_LOOKBACK_DAYS = 4
 EXCLUDED_STATUSES = {"out", "injured reserve", "doubtful", "questionable", "day-to-day"}
 
@@ -235,11 +235,6 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
 
         lines = conn.execute("SELECT player, stat, line, over_price, under_price FROM prop_lines "
                              "WHERE event_id=?", (g["event_id"],)).fetchall()
-        if not lines:
-            projections.append({"matchup": matchup, "tipoff": g["tipoff_et_str"],
-                                "players": players[:PROJECTED_PLAYERS_PER_GAME]})
-            continue
-
         by_name = {norm_name(p["name"]): p for p in players}
         candidates = []
         for name, stat, line, over, under in lines:
@@ -250,13 +245,27 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
             o, u = odds_api.american_to_implied_prob(over), odds_api.american_to_implied_prob(under)
             market = o / (o + u)
             blend = (model + market) / 2
-            if model < 0.5 or abs(model - market) > MAX_DISAGREEMENT or blend < MIN_BLEND:
+            if blend < MIN_BLEND:
                 continue
-            candidates.append((blend, p, stat, line, over, model, market))
+            entry = {"stat": stat, "line": line, "price": over, "chance": blend, "pick": False}
+            p.setdefault("props", []).append(entry)
+            if model < 0.5 or abs(model - market) > MAX_DISAGREEMENT:
+                continue
+            candidates.append((blend, p, stat, line, over, model, market, entry))
         candidates.sort(key=lambda c: -c[0])
+        for c in candidates[:MAX_PICKS_PER_GAME]:
+            c[-1]["pick"] = True
+        shown = [p for i, p in enumerate(players) if i < PROJECTED_PLAYERS_PER_GAME or p.get("props")]
+        for p in shown:
+            p.setdefault("props", []).sort(key=lambda e: ("PTS", "REB", "AST").index(e["stat"]))
+        projections.append({"matchup": matchup, "tipoff": g["tipoff_et_str"], "has_lines": bool(lines),
+                            "n_picks": min(len(candidates), MAX_PICKS_PER_GAME), "players": shown})
+        if not lines:
+            continue
+
         # Re-pick from scratch each pre-tip run, like the game picks.
         conn.execute("DELETE FROM prop_picks WHERE event_id=? AND graded=0", (g["event_id"],))
-        for blend, p, stat, line, over, model, market in candidates[:MAX_PICKS_PER_GAME]:
+        for blend, p, stat, line, over, model, market, _ in candidates[:MAX_PICKS_PER_GAME]:
             conn.execute(
                 """INSERT OR REPLACE INTO prop_picks (event_id, game_date, matchup, athlete_id,
                    player, team, stat, line, price, proj, prob, market_prob, graded, created_at)
