@@ -167,9 +167,10 @@ def render_props(props_data):
     rec = props_data["record"]
     rec_html = ""
     if rec["wins"] + rec["losses"]:
+        profit = rec["units"] * 100
         rec_html = (f'<div class="record"><span class="section-title">Prop record (graded overs, '
-                    f'1 unit each at DraftKings prices)</span> {fmt_record(rec["wins"], rec["losses"])} · '
-                    f'{rec["units"]:+.1f} units</div>')
+                    f'$100 per pick at DraftKings prices)</span> {fmt_record(rec["wins"], rec["losses"])} · '
+                    f'{"+" if profit >= 0 else "-"}${abs(profit):,.0f}</div>')
 
     picks_html = ""
     if props_data["picks"]:

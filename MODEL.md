@@ -285,7 +285,7 @@ correct/incorrect count (overall and per league) is shown on the site above the 
   `(remaining + spent_today - 10 x days_left_in_month) / days_left - spent_today`, so props never
   eat the credits the moneyline odds need. Games without lines still show projections.
 - **Grading**: from ESPN box scores once final; win if actual > line. DNP or ungraded after 4
-  days = void. Record shown as W-L and units (1 unit per pick at the DK price).
+  days = void. Record shown as W-L and profit at $100 per pick at the DK price.
 - **Not modeled**: opponent defense/pace, teammates' absences boosting usage, back-to-backs,
   blowouts.
 
