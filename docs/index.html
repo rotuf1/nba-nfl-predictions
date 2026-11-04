@@ -15,6 +15,8 @@
     --accent: #1a56db;
     --pos: #0a7d34;
     --neg: #b91c1c;
+    --accent-soft: #e8efff;
+    --track: #dfe5f2;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -26,6 +28,8 @@
       --accent: #6ea8fe;
       --pos: #4ade80;
       --neg: #f87171;
+      --accent-soft: #1b2740;
+      --track: #2c3a55;
     }
   }
   * { box-sizing: border-box; }
@@ -81,539 +85,457 @@
   .tipoff { color: var(--muted); font-size: 0.85rem; margin-bottom: 10px; }
   .section { margin-top: 10px; }
   .section-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 3px; }
-  .pick { font-size: 1.05rem; }
-  .pick-team { font-weight: 700; }
-  .edge { font-size: 0.85rem; color: var(--accent); margin-top: 4px; }
-  .odds-line { font-size: 0.88rem; }
+  .pick-box { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px; margin-top: 4px; }
+  .pick-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .pick-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 4px; }
+  .pick-big { font-size: 1.35rem; font-weight: 800; line-height: 1.2; }
+  .pick-prob { font-size: 1.35rem; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .conf-bar { height: 6px; background: var(--track); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .conf-bar span { display: block; height: 100%; background: var(--accent); }
+  .chip { font-size: 0.68rem; font-weight: 600; text-transform: none; letter-spacing: 0; padding: 2px 7px; border-radius: 10px; background: var(--card-bg); color: var(--muted); white-space: nowrap; }
+  .chip-pos { color: var(--pos); }
+  .chip-neg { color: var(--neg); }
+  .market { font-size: 0.85rem; color: var(--muted); }
+  .market strong { color: var(--text); }
+  details.injuries summary { cursor: pointer; }
+  .prop-pick { background: var(--accent-soft); color: var(--accent); font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+  .odds-line { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
   .why { font-size: 0.88rem; color: var(--text); line-height: 1.4; margin: 0; padding-left: 18px; }
   .why li { margin-bottom: 3px; }
   .injury-group { font-size: 0.85rem; margin-top: 4px; }
   .injury-team { font-weight: 600; margin-right: 4px; }
   .injury-group ul { margin: 2px 0 6px 0; padding-left: 18px; }
   .injury-group li { line-height: 1.35; }
+  .props-note { font-size: 0.85rem; color: var(--muted); margin: 8px 0 12px; }
+  .table-wrap { overflow-x: auto; }
+  table.props { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: var(--card-bg); }
+  table.props th, table.props td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  table.props th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+  .muted { color: var(--muted); font-size: 0.8rem; }
+  .res-win { color: var(--pos); font-weight: 700; }
+  .res-loss { color: var(--neg); font-weight: 700; }
+  .res-void { color: var(--muted); }
+  h3.sub { font-size: 1rem; margin: 1.4em 0 8px; }
+  details.proj-game { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+  details.proj-game > summary { cursor: pointer; font-size: 0.95rem; }
+  .g-title { font-weight: 700; }
+  .prow { display: grid; grid-template-columns: minmax(0, 1fr) 2.6rem 2.8rem 2.8rem 2.8rem; gap: 4px; align-items: center; padding: 7px 4px; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+  .prow > span:not(.pname) { text-align: right; }
+  .prow-head { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border-bottom: 1px solid var(--border); margin-top: 8px; }
+  details.player { border-bottom: 1px solid var(--border); }
+  details.player > summary { cursor: pointer; list-style: none; }
+  details.player > summary::-webkit-details-marker { display: none; }
+  details.player > summary .pname::before { content: "▸ "; color: var(--muted); }
+  details.player[open] > summary .pname::before { content: "▾ "; }
+  details.player[open] > summary { background: var(--accent-soft); border-radius: 6px; }
+  .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick-dot { font-size: 0.62rem; font-weight: 800; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
+  table.props.mini { margin: 6px 0 10px; font-size: 0.82rem; }
+  table.props.mini tr.is-pick td { background: var(--accent-soft); font-weight: 700; }
+  .no-lines { padding: 4px 4px 10px 18px; }
   footer { margin-top: 2em; color: var(--muted); font-size: 0.8rem; text-align: center; }
 </style>
 </head>
 <body>
   <div class="wrap">
     <h1>NBA &amp; NFL Predictions</h1>
-    <div class="updated">Predictions last updated 2026-11-02 10:59 PM ET</div>
+    <div class="updated">Predictions last updated 2026-11-04 1:04 AM ET</div>
     <div class="disclaimer">This site presents the output of a statistical model (team Elo ratings plus documented adjustments) alongside public betting-market prices, purely for informational and entertainment purposes. It is not betting advice, and nothing here is a recommendation to wager on anything. See MODEL.md in the repo for the exact methodology.</div>
-    <div class="record"><span class="section-title">Model record (correct picks vs. incorrect, final games only)</span> NFL 68-40 (63.0%) · NBA 70-31 (69.3%) · Overall 138-71 (66.0%)</div>
+    <div class="record"><span class="section-title">Model record (correct picks vs. incorrect, final games only)</span> NFL 68-41 (62.4%) · NBA 73-33 (68.9%) · Overall 141-74 (65.6%)</div>
     
-    <h2>NFL</h2><div class="cards">
+    <h2>NBA</h2><div class="cards">
     <div class="card">
       <div class="card-header">
-        <span class="matchup">Chicago Bears @ Seattle Seahawks</span>
-        <span class="badge badge-live">LIVE · pre-kickoff card</span>
-      </div>
-      <div class="tipoff">8:15 PM ET</div>
-
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Seattle Seahawks</span> 67.9%</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Seattle Seahawks</span> 60.4%</div>
-        <div class="odds-line">DK: CHI +142 / SEA -170</div>
-        <div class="odds-line">Kalshi: CHI 38.5% / SEA 61.5%</div>
-        <div class="odds-line">Polymarket: CHI 38.5% / SEA 61.5%</div>
-        <div class="edge">Edge: +7.5 pts — model is more confident than the market</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Why</div>
-        <ul class="why"><li>Seattle Seahawks are 7-3 over their last 10 games, outscoring opponents by 9.8 points/game on average</li><li>Chicago Bears are 6-4 over their last 10 games, on a 2-game winning streak, outscoring opponents by 3.5 points/game on average; Chicago Bears are coming off extra rest (11 days)</li><li>Seattle Seahawks have won 1 of the last 3 meetings with Chicago Bears</li><li>Seattle Seahawks are 3-1 at home this season</li><li>Chicago Bears are 2-1 on the road this season</li></ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Chicago Bears</span><ul><li>Malik Muhammad II (CB) — Questionable</li><li>D&#x27;Marco Jackson (LB) — Questionable</li><li>Kyle Monangai (RB) — Out</li><li>Coby Bryant (S) — Injured Reserve</li><li>Cole Kmet (TE) — Injured Reserve</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Seattle Seahawks</span><ul><li>Charles Cross (OT) — Out</li><li>Velus Jones Jr. (RB) — Out</li><li>Drew Lock (QB) — Questionable</li><li>Uchenna Nwosu (LB) — Doubtful</li><li>Rashid Shaheed (WR) — Out</li><li>Brandon Pili (DT) — Questionable</li><li>Anthony Bradford (G) — Questionable</li><li>Patrick O&#x27;Connell (LB) — Questionable</li></ul></div>
-      </div>
-    </div></div><h2>NBA</h2><div class="cards">
-    <div class="card">
-      <div class="card-header">
-        <span class="matchup">Oklahoma City Thunder @ Cleveland Cavaliers</span>
-        <span class="badge badge-final">FINAL OKC 117 - CLE 112</span>
+        <span class="matchup">Philadelphia 76ers @ Detroit Pistons</span>
+        
       </div>
       <div class="tipoff">7:00 PM ET</div>
 
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Cleveland Cavaliers</span> 63.3%</div>
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip">model ≈ market</span></div>
+        <div class="pick-row"><span class="pick-big">Detroit Pistons</span><span class="pick-prob">54.0%</span></div><div class="conf-bar"><span style="width:54%"></span></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Cleveland Cavaliers</span> 61.7%</div>
-        <div class="odds-line">DK: OKC +151 / CLE -180</div>
-        <div class="odds-line">Kalshi: OKC 38.5% / CLE 61.5%</div>
-        <div class="odds-line">Polymarket: OKC 38.5% / CLE 61.5%</div>
-        <div class="edge">Edge: +1.5 pts — model is more confident than the market</div>
+      <div class="section market">
+        <div>Market: <strong>Detroit Pistons</strong> 54.3%</div>
+        <div class="odds-line">DK: PHI +110 / DET -130 · Kalshi: PHI 45.5% / DET 53.5% · Polymarket: PHI 45.5% / DET 54.5%</div>
       </div>
 
       <div class="section">
         <div class="section-title">Why</div>
-        <ul class="why"><li>Cleveland Cavaliers are 4-6 over their last 10 games, getting outscored by opponents by 4.7 points/game on average</li><li>Oklahoma City Thunder are 5-5 over their last 10 games, on a 2-game losing streak, getting outscored by opponents by 4.6 points/game on average</li><li>Cleveland Cavaliers have won 1 of the last 5 meetings with Oklahoma City Thunder</li><li>Cleveland Cavaliers are 3-0 at home this season</li><li>Oklahoma City Thunder are 1-2 on the road this season</li></ul>
+        <ul class="why"><li>Detroit Pistons are 7-3 over their last 10 games, on a 3-game winning streak, outscoring opponents by 6.7 points/game on average</li><li>Philadelphia 76ers are 7-3 over their last 10 games, on a 4-game winning streak, outscoring opponents by 0.2 points/game on average</li><li>Detroit Pistons have won 5 of the last 5 meetings with Philadelphia 76ers</li><li>Detroit Pistons are 2-0 at home this season</li><li>Philadelphia 76ers are 3-0 on the road this season</li></ul>
       </div>
 
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Oklahoma City Thunder</span><ul><li>Thomas Sorber (C) — Out</li><li>Cason Wallace (G) — Out</li><li>Chet Holmgren (C) — Out</li><li>Jalen Williams (G) — Out</li><li>Alex Caruso (G) — Out</li><li>Nikola Topic (G) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Cleveland Cavaliers</span><ul><li>Peyton Watson (G) — Out</li><li>Jaylon Tyson (G) — Out</li></ul></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="matchup">Detroit Pistons @ Charlotte Hornets</span>
-        <span class="badge badge-final">FINAL DET 124 - CHA 91</span>
-      </div>
-      <div class="tipoff">7:30 PM ET</div>
-
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Detroit Pistons</span> 67.0%</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Detroit Pistons</span> 67.5%</div>
-        <div class="odds-line">DK: DET -237 / CHA +196</div>
-        <div class="odds-line">Kalshi: DET 67.5% / CHA 32.5%</div>
-        <div class="odds-line">Polymarket: DET 67.5% / CHA 32.5%</div>
-        <div class="edge">Edge: -0.6 pts — model is less confident than the market</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Why</div>
-        <ul class="why"><li>Charlotte Hornets are 5-5 over their last 10 games, on a 3-game losing streak, getting outscored by opponents by 7.3 points/game on average</li><li>Detroit Pistons are 6-4 over their last 10 games, on a 2-game winning streak, outscoring opponents by 2.5 points/game on average</li><li>Charlotte Hornets have won 0 of the last 5 meetings with Detroit Pistons</li><li>Charlotte Hornets are 2-2 at home this season</li><li>Detroit Pistons are 3-1 on the road this season</li></ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Injury report</div>
+      <details class="section injuries">
+        <summary class="section-title">Injury report (4)</summary>
+        <div class="injury-group"><span class="injury-team">Philadelphia 76ers</span><ul><li>Dominick Barlow (F) — Out</li><li>Ariel Hukporti (C) — Out</li></ul></div>
         <div class="injury-group"><span class="injury-team">Detroit Pistons</span><ul><li>Isaiah Joe (G) — Out</li><li>Jalen Duren (C) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Charlotte Hornets</span><ul><li>Grant Williams (F) — Out</li><li>Kon Knueppel (G) — Out</li></ul></div>
-      </div>
+      </details>
     </div>
     <div class="card">
       <div class="card-header">
-        <span class="matchup">Atlanta Hawks @ Indiana Pacers</span>
-        <span class="badge badge-final">FINAL ATL 108 - IND 104</span>
+        <span class="matchup">Atlanta Hawks @ Washington Wizards</span>
+        
+      </div>
+      <div class="tipoff">7:00 PM ET</div>
+
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+5.1 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">Atlanta Hawks</span><span class="pick-prob">61.4%</span></div><div class="conf-bar"><span style="width:61%"></span></div>
+      </div>
+
+      <div class="section market">
+        <div>Market: <strong>Atlanta Hawks</strong> 56.3%</div>
+        <div class="odds-line">DK: ATL -142 / WSH +120 · Kalshi: ATL 56.5% / WSH 43.5% · Polymarket: ATL 56.5% / WSH 43.5%</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Why</div>
+        <ul class="why"><li>Washington Wizards are 4-6 over their last 10 games, on a 2-game winning streak, getting outscored by opponents by 3.3 points/game on average</li><li>Atlanta Hawks are 4-6 over their last 10 games, getting outscored by opponents by 7.0 points/game on average</li><li>Washington Wizards have won 1 of the last 5 meetings with Atlanta Hawks</li><li>Washington Wizards are 2-1 at home this season</li><li>Atlanta Hawks are 3-2 on the road this season</li></ul>
+      </div>
+
+      <details class="section injuries">
+        <summary class="section-title">Injury report (10)</summary>
+        <div class="injury-group"><span class="injury-team">Atlanta Hawks</span><ul><li>Jock Landale (C) — Out</li><li>Jalen Johnson (F) — Day-To-Day</li><li>Mouhamed Gueye (F) — Out</li><li>Henri Veesaar (C) — Out</li></ul></div>
+        <div class="injury-group"><span class="injury-team">Washington Wizards</span><ul><li>Anthony Gill (F) — Day-To-Day</li><li>Alex Sarr (C) — Day-To-Day</li><li>Reece Beekman (G) — Out</li><li>Tristan Vukcevic (F) — Out</li><li>Justin Champagnie (F) — Out</li><li>Jamir Watkins (G) — Out</li></ul></div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="matchup">Milwaukee Bucks @ Boston Celtics</span>
+        
       </div>
       <div class="tipoff">7:30 PM ET</div>
 
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Atlanta Hawks</span> 76.8%</div>
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+2.4 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">Boston Celtics</span><span class="pick-prob">84.1%</span></div><div class="conf-bar"><span style="width:84%"></span></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Atlanta Hawks</span> 76.6%</div>
-        <div class="odds-line">DK: ATL -394 / IND +311</div>
-        <div class="odds-line">Kalshi: ATL 77.5% / IND 22.5%</div>
-        <div class="odds-line">Polymarket: ATL 76.5% / IND 23.5%</div>
-        <div class="edge">Edge: ~0 pts — model and market roughly agree</div>
+      <div class="section market">
+        <div>Market: <strong>Boston Celtics</strong> 81.7%</div>
+        <div class="odds-line">DK: MIL +424 / BOS -567 · Kalshi: MIL 17.5% / BOS 82.5% · Polymarket: MIL 17.5% / BOS 82.5%</div>
       </div>
 
       <div class="section">
         <div class="section-title">Why</div>
-        <ul class="why"><li>Indiana Pacers are 3-7 over their last 10 games, on a 4-game losing streak, getting outscored by opponents by 2.1 points/game on average; Indiana Pacers are on a back-to-back (0 days rest)</li><li>Atlanta Hawks are 3-7 over their last 10 games, getting outscored by opponents by 9.0 points/game on average</li><li>Indiana Pacers have won 1 of the last 5 meetings with Atlanta Hawks</li><li>Indiana Pacers are 0-3 at home this season</li><li>Atlanta Hawks are 2-2 on the road this season</li></ul>
+        <ul class="why"><li>Boston Celtics are 5-5 over their last 10 games, outscoring opponents by 0.3 points/game on average</li><li>Milwaukee Bucks are 2-8 over their last 10 games, on a 3-game losing streak, getting outscored by opponents by 12.0 points/game on average</li><li>Boston Celtics have won 4 of the last 5 meetings with Milwaukee Bucks</li><li>Boston Celtics are 4-0 at home this season</li><li>Milwaukee Bucks are 0-3 on the road this season</li></ul>
       </div>
 
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Atlanta Hawks</span><ul><li>Jalen Johnson (F) — Out</li><li>Kingston Flemings (G) — Suspension</li><li>Jock Landale (C) — Out</li><li>Mouhamed Gueye (F) — Out</li><li>Henri Veesaar (C) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Indiana Pacers</span><ul><li>Larry Nance Jr. (F) — Out</li><li>Obi Toppin (F) — Out</li><li>T.J. McConnell (G) — Out</li><li>Ivica Zubac (C) — Out</li><li>Aaron Nesmith (G) — Out</li><li>Andrew Nembhard (G) — Out</li><li>Pascal Siakam (F) — Out</li><li>Johnny Furphy (G) — Out</li><li>Ben Sheppard (G) — Out</li><li>Tyrese Haliburton (G) — Out</li></ul></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="matchup">Brooklyn Nets @ New York Knicks</span>
-        <span class="badge badge-final">FINAL BKN 90 - NY 103</span>
-      </div>
-      <div class="tipoff">7:30 PM ET</div>
-
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">New York Knicks</span> 88.4%</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">New York Knicks</span> 87.4%</div>
-        <div class="odds-line">DK: BKN +660 / NY -1020</div>
-        <div class="odds-line">Kalshi: BKN 11.5% / NY 88.5%</div>
-        <div class="odds-line">Polymarket: BKN 11.5% / NY 88.5%</div>
-        <div class="edge">Edge: +1.0 pts — model is more confident than the market</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Why</div>
-        <ul class="why"><li>New York Knicks are 5-5 over their last 10 games, getting outscored by opponents by 0.2 points/game on average</li><li>Brooklyn Nets are 2-8 over their last 10 games, getting outscored by opponents by 12.2 points/game on average; Brooklyn Nets are on a back-to-back (0 days rest)</li><li>New York Knicks have won 5 of the last 5 meetings with Brooklyn Nets</li><li>New York Knicks are 1-2 at home this season</li><li>Brooklyn Nets are 1-2 on the road this season</li></ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Brooklyn Nets</span><ul><li>Egor Demin (G) — Out</li><li>Tyler Bilodeau (F) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">New York Knicks</span>none reported</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="matchup">Washington Wizards @ Orlando Magic</span>
-        <span class="badge badge-final">FINAL WSH 103 - ORL 94</span>
-      </div>
-      <div class="tipoff">7:30 PM ET</div>
-
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Washington Wizards</span> 57.8%</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Orlando Magic</span> 58.4%</div>
-        <div class="odds-line">DK: WSH +131 / ORL -155</div>
-        <div class="odds-line">Kalshi: WSH 42.5% / ORL 57.5%</div>
-        <div class="odds-line">Polymarket: WSH 41.5% / ORL 58.5%</div>
-        <div class="edge">Edge: +16.2 pts — model is more confident than the market</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Why</div>
-        <ul class="why"><li>Orlando Magic are 3-7 over their last 10 games, getting outscored by opponents by 9.1 points/game on average; Orlando Magic are on a back-to-back (0 days rest)</li><li>Washington Wizards are 3-7 over their last 10 games, getting outscored by opponents by 7.3 points/game on average</li><li>Orlando Magic have won 4 of the last 5 meetings with Washington Wizards</li><li>Orlando Magic are 0-3 at home this season</li><li>Washington Wizards are 1-2 on the road this season</li></ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Washington Wizards</span><ul><li>Reece Beekman (G) — Out</li><li>Anthony Gill (F) — Out</li><li>Alex Sarr (C) — Out</li><li>Tristan Vukcevic (F) — Out</li><li>Justin Champagnie (F) — Out</li><li>Jamir Watkins (G) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Orlando Magic</span><ul><li>Anthony Black (G) — Out</li><li>Jonathan Isaac (F) — Out</li><li>Jalen Suggs (G) — Out</li><li>Paolo Banchero (F) — Out</li><li>Noah Penda (F) — Out</li><li>Izaiyah Nelson (F) — Out</li></ul></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="matchup">Chicago Bulls @ Philadelphia 76ers</span>
-        <span class="badge badge-final">FINAL CHI 107 - PHI 126</span>
-      </div>
-      <div class="tipoff">7:30 PM ET</div>
-
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Philadelphia 76ers</span> 84.5%</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Philadelphia 76ers</span> 80.6%</div>
-        <div class="odds-line">DK: CHI +396 / PHI -522</div>
-        <div class="odds-line">Kalshi: CHI 18.5% / PHI 81.5%</div>
-        <div class="odds-line">Polymarket: CHI 17.5% / PHI 82.5%</div>
-        <div class="edge">Edge: +3.9 pts — model is more confident than the market</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Why</div>
-        <ul class="why"><li>Philadelphia 76ers are 6-4 over their last 10 games, on a 3-game winning streak, getting outscored by opponents by 2.3 points/game on average</li><li>Chicago Bulls are 3-7 over their last 10 games, on a 4-game losing streak, getting outscored by opponents by 9.8 points/game on average</li><li>Philadelphia 76ers have won 1 of the last 5 meetings with Chicago Bulls</li><li>Philadelphia 76ers are 3-1 at home this season</li><li>Chicago Bulls are 1-3 on the road this season</li></ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Chicago Bulls</span><ul><li>Nic Claxton (C) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Philadelphia 76ers</span><ul><li>Dominick Barlow (F) — Out</li><li>Joel Embiid (C) — Day-To-Day</li><li>Ariel Hukporti (C) — Out</li></ul></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="matchup">Sacramento Kings @ Dallas Mavericks</span>
-        <span class="badge badge-final">FINAL SAC 115 - DAL 100</span>
-      </div>
-      <div class="tipoff">8:00 PM ET</div>
-
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Dallas Mavericks</span> 70.6%</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Dallas Mavericks</span> 74.0%</div>
-        <div class="odds-line">DK: SAC +270 / DAL -335</div>
-        <div class="odds-line">Kalshi: SAC 24.5% / DAL 75.5%</div>
-        <div class="odds-line">Polymarket: SAC 24.5% / DAL 75.5%</div>
-        <div class="edge">Edge: -3.4 pts — model is less confident than the market</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Why</div>
-        <ul class="why"><li>Dallas Mavericks are 5-5 over their last 10 games, on a 3-game winning streak, getting outscored by opponents by 0.1 points/game on average</li><li>Sacramento Kings are 1-9 over their last 10 games, on a 7-game losing streak, getting outscored by opponents by 15.4 points/game on average</li><li>Dallas Mavericks have won 2 of the last 5 meetings with Sacramento Kings</li><li>Dallas Mavericks are 2-1 at home this season</li><li>Sacramento Kings are 0-4 on the road this season</li></ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Sacramento Kings</span><ul><li>Dylan Cardwell (C) — Out</li><li>Zach LaVine (G) — Day-To-Day</li><li>Maxime Raynaud (C) — Out</li><li>Keegan Murray (F) — Out</li><li>Ben Simmons (G) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Dallas Mavericks</span><ul><li>Kyrie Irving (G) — Out</li><li>Santi Aldama (F) — Out</li><li>Tarik Biberovic (F) — Out</li><li>Dereck Lively II (C) — Out</li><li>Sergio de Larrea (F) — Out</li></ul></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="matchup">New Orleans Pelicans @ Memphis Grizzlies</span>
-        <span class="badge badge-final">FINAL NO 135 - MEM 134</span>
-      </div>
-      <div class="tipoff">8:00 PM ET</div>
-
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Memphis Grizzlies</span> 80.9%</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Memphis Grizzlies</span> 65.5%</div>
-        <div class="odds-line">DK: NO +178 / MEM -214</div>
-        <div class="odds-line">Kalshi: NO 34.5% / MEM 64.5%</div>
-        <div class="odds-line">Polymarket: NO 33.5% / MEM 66.5%</div>
-        <div class="edge">Edge: +15.4 pts — model is more confident than the market</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Why</div>
-        <ul class="why"><li>Memphis Grizzlies are 6-4 over their last 10 games, on a 6-game winning streak, getting outscored by opponents by 1.9 points/game on average</li><li>New Orleans Pelicans are 3-7 over their last 10 games, on a 2-game winning streak, getting outscored by opponents by 0.6 points/game on average</li><li>Memphis Grizzlies have won 3 of the last 5 meetings with New Orleans Pelicans</li><li>Memphis Grizzlies are 2-0 at home this season</li><li>New Orleans Pelicans are 0-2 on the road this season</li></ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">New Orleans Pelicans</span><ul><li>Dejounte Murray (G) — Out</li><li>Jordan Poole (G) — Out</li><li>Yves Missi (C) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Memphis Grizzlies</span><ul><li>Scotty Pippen Jr. (G) — Day-To-Day</li><li>Quinten Post (C) — Day-To-Day</li></ul></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="matchup">Milwaukee Bucks @ Minnesota Timberwolves</span>
-        <span class="badge badge-final">FINAL MIL 100 - MIN 112</span>
-      </div>
-      <div class="tipoff">8:00 PM ET</div>
-
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Minnesota Timberwolves</span> 62.5%</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Minnesota Timberwolves</span> 77.7%</div>
-        <div class="odds-line">DK: MIL +331 / MIN -423</div>
-        <div class="odds-line">Kalshi: MIL 21.5% / MIN 78.5%</div>
-        <div class="odds-line">Polymarket: MIL 21.5% / MIN 78.5%</div>
-        <div class="edge">Edge: -15.2 pts — model is less confident than the market</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Why</div>
-        <ul class="why"><li>Minnesota Timberwolves are 5-5 over their last 10 games, outscoring opponents by 2.5 points/game on average</li><li>Milwaukee Bucks are 2-8 over their last 10 games, on a 2-game losing streak, getting outscored by opponents by 11.4 points/game on average</li><li>Minnesota Timberwolves have won 2 of the last 5 meetings with Milwaukee Bucks</li><li>Minnesota Timberwolves are 2-1 at home this season</li><li>Milwaukee Bucks are 0-2 on the road this season</li></ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Injury report</div>
+      <details class="section injuries">
+        <summary class="section-title">Injury report (3)</summary>
         <div class="injury-group"><span class="injury-team">Milwaukee Bucks</span>none reported</div>
-        <div class="injury-group"><span class="injury-team">Minnesota Timberwolves</span><ul><li>Terrence Shannon Jr. (G) — Out</li><li>LaMelo Ball (G) — Day-To-Day</li><li>Anthony Edwards (G) — Out</li><li>Donte DiVincenzo (G) — Out</li></ul></div>
-      </div>
+        <div class="injury-group"><span class="injury-team">Boston Celtics</span><ul><li>Payton Pritchard (G) — Day-To-Day</li><li>Jayson Tatum (F) — Day-To-Day</li><li>Devin Carter (G) — Out</li></ul></div>
+      </details>
     </div>
     <div class="card">
       <div class="card-header">
-        <span class="matchup">Boston Celtics @ Houston Rockets</span>
-        <span class="badge badge-final">FINAL BOS 93 - HOU 109</span>
+        <span class="matchup">Charlotte Hornets @ Brooklyn Nets</span>
+        
       </div>
-      <div class="tipoff">8:30 PM ET</div>
+      <div class="tipoff">7:30 PM ET</div>
 
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Houston Rockets</span> 73.0%</div>
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-neg">-7.6 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">Charlotte Hornets</span><span class="pick-prob">51.8%</span></div><div class="conf-bar"><span style="width:52%"></span></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Houston Rockets</span> 63.1%</div>
-        <div class="odds-line">DK: BOS +160 / HOU -191</div>
-        <div class="odds-line">Kalshi: BOS 37.5% / HOU 62.5%</div>
-        <div class="odds-line">Polymarket: BOS 36.5% / HOU 63.5%</div>
-        <div class="edge">Edge: +9.9 pts — model is more confident than the market</div>
+      <div class="section market">
+        <div>Market: <strong>Charlotte Hornets</strong> 59.3%</div>
+        <div class="odds-line">DK: CHA -162 / BKN +136 · Kalshi: CHA 59.5% / BKN 40.5% · Polymarket: CHA 60.5% / BKN 39.5%</div>
       </div>
 
       <div class="section">
         <div class="section-title">Why</div>
-        <ul class="why"><li>Houston Rockets are 8-2 over their last 10 games, outscoring opponents by 9.2 points/game on average</li><li>Boston Celtics are 6-4 over their last 10 games, on a 5-game winning streak, outscoring opponents by 5.1 points/game on average; Boston Celtics are on a back-to-back (0 days rest)</li><li>Houston Rockets have won 2 of the last 5 meetings with Boston Celtics</li><li>Houston Rockets are 3-0 at home this season</li><li>Boston Celtics are 1-1 on the road this season</li></ul>
+        <ul class="why"><li>Brooklyn Nets are 1-9 over their last 10 games, getting outscored by opponents by 14.1 points/game on average</li><li>Charlotte Hornets are 4-6 over their last 10 games, on a 4-game losing streak, getting outscored by opponents by 12.0 points/game on average</li><li>Brooklyn Nets have won 1 of the last 5 meetings with Charlotte Hornets</li><li>Brooklyn Nets are 0-3 at home this season</li><li>Charlotte Hornets are 1-2 on the road this season</li></ul>
       </div>
 
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Boston Celtics</span><ul><li>Paul George (F) — Out</li><li>Devin Carter (G) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Houston Rockets</span><ul><li>Clint Capela (C) — Out</li><li>Reed Sheppard (G) — Day-To-Day</li><li>Steven Adams (C) — Out</li></ul></div>
-      </div>
+      <details class="section injuries">
+        <summary class="section-title">Injury report (5)</summary>
+        <div class="injury-group"><span class="injury-team">Charlotte Hornets</span><ul><li>Kon Knueppel (G) — Out</li><li>Coby White (G) — Day-To-Day</li><li>Grant Williams (F) — Out</li></ul></div>
+        <div class="injury-group"><span class="injury-team">Brooklyn Nets</span><ul><li>Egor Demin (G) — Out</li><li>Tyler Bilodeau (F) — Out</li></ul></div>
+      </details>
     </div>
     <div class="card">
       <div class="card-header">
-        <span class="matchup">Utah Jazz @ San Antonio Spurs</span>
-        <span class="badge badge-live">LIVE · pre-kickoff card</span>
+        <span class="matchup">Chicago Bulls @ New York Knicks</span>
+        
       </div>
-      <div class="tipoff">8:30 PM ET</div>
+      <div class="tipoff">7:30 PM ET</div>
 
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">San Antonio Spurs</span> 88.3%</div>
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+5.3 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">New York Knicks</span><span class="pick-prob">87.6%</span></div><div class="conf-bar"><span style="width:88%"></span></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">San Antonio Spurs</span> 88.6%</div>
-        <div class="odds-line">DK: UTAH +740 / SA -1180</div>
-        <div class="odds-line">Kalshi: UTAH 10.5% / SA 89.5%</div>
-        <div class="odds-line">Polymarket: UTAH 10.5% / SA 89.5%</div>
-        <div class="edge">Edge: ~0 pts — model and market roughly agree</div>
+      <div class="section market">
+        <div>Market: <strong>New York Knicks</strong> 82.3%</div>
+        <div class="odds-line">DK: CHI +443 / NY -597 · Kalshi: CHI 16.5% / NY 83.5% · Polymarket: CHI 16.5% / NY 83.5%</div>
       </div>
 
       <div class="section">
         <div class="section-title">Why</div>
-        <ul class="why"><li>San Antonio Spurs are 5-5 over their last 10 games, on a 4-game winning streak, outscoring opponents by 4.1 points/game on average</li><li>Utah Jazz are 2-8 over their last 10 games, on a 4-game losing streak, getting outscored by opponents by 9.3 points/game on average</li><li>San Antonio Spurs have won 4 of the last 5 meetings with Utah Jazz</li><li>San Antonio Spurs are 2-2 at home this season</li><li>Utah Jazz are 0-1 on the road this season</li></ul>
+        <ul class="why"><li>New York Knicks are 5-5 over their last 10 games, outscoring opponents by 1.0 points/game on average</li><li>Chicago Bulls are 2-8 over their last 10 games, on a 5-game losing streak, getting outscored by opponents by 14.8 points/game on average</li><li>New York Knicks have won 4 of the last 5 meetings with Chicago Bulls</li><li>New York Knicks are 2-2 at home this season</li><li>Chicago Bulls are 1-4 on the road this season</li></ul>
       </div>
 
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Utah Jazz</span><ul><li>Jaren Jackson Jr. (F) — Out</li><li>Trey Alexander (G) — Out</li><li>Jusuf Nurkic (C) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">San Antonio Spurs</span><ul><li>Tobias Harris (F) — Out</li><li>Jayden Quaintance (F) — Out</li></ul></div>
-      </div>
+      <details class="section injuries">
+        <summary class="section-title">Injury report (3)</summary>
+        <div class="injury-group"><span class="injury-team">Chicago Bulls</span><ul><li>Nic Claxton (C) — Out</li><li>Jalen Smith (F) — Day-To-Day</li></ul></div>
+        <div class="injury-group"><span class="injury-team">New York Knicks</span><ul><li>Josh Hart (G) — Day-To-Day</li></ul></div>
+      </details>
     </div>
     <div class="card">
       <div class="card-header">
-        <span class="matchup">Portland Trail Blazers @ Denver Nuggets</span>
-        <span class="badge badge-live">LIVE · pre-kickoff card</span>
+        <span class="matchup">Indiana Pacers @ Memphis Grizzlies</span>
+        
+      </div>
+      <div class="tipoff">8:00 PM ET</div>
+
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+17.1 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">Memphis Grizzlies</span><span class="pick-prob">85.6%</span></div><div class="conf-bar"><span style="width:86%"></span></div>
+      </div>
+
+      <div class="section market">
+        <div>Market: <strong>Memphis Grizzlies</strong> 68.5%</div>
+        <div class="odds-line">DK: IND +205 / MEM -249 · Kalshi: IND 31.5% / MEM 68.5% · Polymarket: IND 30.5% / MEM 69.5%</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Why</div>
+        <ul class="why"><li>Memphis Grizzlies are 6-4 over their last 10 games, getting outscored by opponents by 0.4 points/game on average</li><li>Indiana Pacers are 2-8 over their last 10 games, on a 5-game losing streak, getting outscored by opponents by 5.4 points/game on average</li><li>Memphis Grizzlies have won 3 of the last 5 meetings with Indiana Pacers</li><li>Memphis Grizzlies are 2-1 at home this season</li><li>Indiana Pacers are 2-2 on the road this season</li></ul>
+      </div>
+
+      <details class="section injuries">
+        <summary class="section-title">Injury report (9)</summary>
+        <div class="injury-group"><span class="injury-team">Indiana Pacers</span><ul><li>Ivica Zubac (C) — Out</li><li>Kelly Oubre Jr. (G) — Day-To-Day</li><li>Obi Toppin (F) — Out</li><li>T.J. McConnell (G) — Out</li><li>Johnny Furphy (G) — Out</li><li>Ben Sheppard (G) — Out</li><li>Tyrese Haliburton (G) — Out</li></ul></div>
+        <div class="injury-group"><span class="injury-team">Memphis Grizzlies</span><ul><li>Quinten Post (C) — Day-To-Day</li><li>Scotty Pippen Jr. (G) — Out</li></ul></div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="matchup">Utah Jazz @ New Orleans Pelicans</span>
+        
+      </div>
+      <div class="tipoff">8:00 PM ET</div>
+
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-neg">-4.0 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">New Orleans Pelicans</span><span class="pick-prob">61.7%</span></div><div class="conf-bar"><span style="width:62%"></span></div>
+      </div>
+
+      <div class="section market">
+        <div>Market: <strong>New Orleans Pelicans</strong> 65.7%</div>
+        <div class="odds-line">DK: UTAH +180 / NO -217 · Kalshi: UTAH 34.0% / NO 66.0% · Polymarket: UTAH 33.5% / NO 66.5%</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Why</div>
+        <ul class="why"><li>New Orleans Pelicans are 4-6 over their last 10 games, on a 3-game winning streak, getting outscored by opponents by 0.1 points/game on average</li><li>Utah Jazz are 2-8 over their last 10 games, on a 5-game losing streak, getting outscored by opponents by 8.0 points/game on average</li><li>New Orleans Pelicans have won 4 of the last 5 meetings with Utah Jazz</li><li>New Orleans Pelicans are 2-2 at home this season</li><li>Utah Jazz are 0-2 on the road this season</li></ul>
+      </div>
+
+      <details class="section injuries">
+        <summary class="section-title">Injury report (7)</summary>
+        <div class="injury-group"><span class="injury-team">Utah Jazz</span><ul><li>Jusuf Nurkic (C) — Out</li><li>Mo Bamba (C) — Day-To-Day</li><li>Jaren Jackson Jr. (F) — Out</li><li>Trey Alexander (G) — Out</li></ul></div>
+        <div class="injury-group"><span class="injury-team">New Orleans Pelicans</span><ul><li>Jordan Poole (G) — Out</li><li>Trey Murphy III (F) — Day-To-Day</li><li>Yves Missi (C) — Out</li></ul></div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="matchup">Cleveland Cavaliers @ Oklahoma City Thunder</span>
+        
+      </div>
+      <div class="tipoff">8:00 PM ET</div>
+
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+2.2 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">Oklahoma City Thunder</span><span class="pick-prob">57.3%</span></div><div class="conf-bar"><span style="width:57%"></span></div>
+      </div>
+
+      <div class="section market">
+        <div>Market: <strong>Oklahoma City Thunder</strong> 55.1%</div>
+        <div class="odds-line">DK: CLE +114 / OKC -135 · Kalshi: CLE 43.5% / OKC 56.5% · Polymarket: CLE 43.5% / OKC 56.5%</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Why</div>
+        <ul class="why"><li>Oklahoma City Thunder are 6-4 over their last 10 games, getting outscored by opponents by 2.0 points/game on average</li><li>Cleveland Cavaliers are 4-6 over their last 10 games, getting outscored by opponents by 4.1 points/game on average</li><li>Oklahoma City Thunder have won 4 of the last 5 meetings with Cleveland Cavaliers</li><li>Oklahoma City Thunder are 3-0 at home this season</li><li>Cleveland Cavaliers are 1-2 on the road this season</li></ul>
+      </div>
+
+      <details class="section injuries">
+        <summary class="section-title">Injury report (8)</summary>
+        <div class="injury-group"><span class="injury-team">Cleveland Cavaliers</span><ul><li>Jaylon Tyson (G) — Out</li><li>Peyton Watson (G) — Out</li></ul></div>
+        <div class="injury-group"><span class="injury-team">Oklahoma City Thunder</span><ul><li>Nikola Topic (G) — Out</li><li>Thomas Sorber (C) — Out</li><li>Jaylin Williams (F) — Day-To-Day</li><li>Cason Wallace (G) — Out</li><li>Chet Holmgren (C) — Out</li><li>Jalen Williams (G) — Out</li></ul></div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="matchup">Minnesota Timberwolves @ Houston Rockets</span>
+        
+      </div>
+      <div class="tipoff">8:30 PM ET</div>
+
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+8.1 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">Houston Rockets</span><span class="pick-prob">80.7%</span></div><div class="conf-bar"><span style="width:81%"></span></div>
+      </div>
+
+      <div class="section market">
+        <div>Market: <strong>Houston Rockets</strong> 72.6%</div>
+        <div class="odds-line">DK: MIN +251 / HOU -310 · Kalshi: MIN 26.5% / HOU 73.5% · Polymarket: MIN 26.5% / HOU 73.5%</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Why</div>
+        <ul class="why"><li>Houston Rockets are 8-2 over their last 10 games, on a 2-game winning streak, outscoring opponents by 8.9 points/game on average</li><li>Minnesota Timberwolves are 5-5 over their last 10 games, outscoring opponents by 3.2 points/game on average</li><li>Houston Rockets have won 2 of the last 5 meetings with Minnesota Timberwolves</li><li>Houston Rockets are 4-0 at home this season</li><li>Minnesota Timberwolves are 2-2 on the road this season</li></ul>
+      </div>
+
+      <details class="section injuries">
+        <summary class="section-title">Injury report (5)</summary>
+        <div class="injury-group"><span class="injury-team">Minnesota Timberwolves</span><ul><li>Terrence Shannon Jr. (G) — Day-To-Day</li><li>Anthony Edwards (G) — Out</li><li>Donte DiVincenzo (G) — Out</li></ul></div>
+        <div class="injury-group"><span class="injury-team">Houston Rockets</span><ul><li>Clint Capela (C) — Day-To-Day</li><li>Steven Adams (C) — Out</li></ul></div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="matchup">Toronto Raptors @ Denver Nuggets</span>
+        
       </div>
       <div class="tipoff">9:00 PM ET</div>
 
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Denver Nuggets</span> 76.2%</div>
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+3.3 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">Denver Nuggets</span><span class="pick-prob">66.4%</span></div><div class="conf-bar"><span style="width:66%"></span></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Denver Nuggets</span> 61.0%</div>
-        <div class="odds-line">DK: POR +146 / DEN -174</div>
-        <div class="odds-line">Kalshi: POR 38.5% / DEN 61.5%</div>
-        <div class="odds-line">Polymarket: POR 38.5% / DEN 61.5%</div>
-        <div class="edge">Edge: +15.2 pts — model is more confident than the market</div>
+      <div class="section market">
+        <div>Market: <strong>Denver Nuggets</strong> 63.1%</div>
+        <div class="odds-line">DK: TOR +160 / DEN -192 · Kalshi: TOR 34.5% / DEN 63.5% · Polymarket: TOR 36.5% / DEN 63.5%</div>
       </div>
 
       <div class="section">
         <div class="section-title">Why</div>
-        <ul class="why"><li>Denver Nuggets are 4-6 over their last 10 games, on a 2-game winning streak, getting outscored by opponents by 4.4 points/game on average</li><li>Portland Trail Blazers are 5-5 over their last 10 games, getting outscored by opponents by 0.5 points/game on average</li><li>Denver Nuggets have won 3 of the last 5 meetings with Portland Trail Blazers</li><li>Denver Nuggets are 1-1 at home this season</li><li>Portland Trail Blazers are 3-0 on the road this season</li></ul>
+        <ul class="why"><li>Denver Nuggets are 4-6 over their last 10 games, getting outscored by opponents by 4.7 points/game on average</li><li>Toronto Raptors are 5-5 over their last 10 games, outscoring opponents by 3.9 points/game on average</li><li>Denver Nuggets have won 5 of the last 5 meetings with Toronto Raptors</li><li>Denver Nuggets are 1-2 at home this season</li><li>Toronto Raptors are 2-2 on the road this season</li></ul>
+      </div>
+
+      <details class="section injuries">
+        <summary class="section-title">Injury report (7)</summary>
+        <div class="injury-group"><span class="injury-team">Toronto Raptors</span><ul><li>Kawhi Leonard (F) — Out</li><li>Jakob Poeltl (C) — Day-To-Day</li><li>Nate Bittle (C) — Out</li></ul></div>
+        <div class="injury-group"><span class="injury-team">Denver Nuggets</span><ul><li>Cameron Johnson (F) — Day-To-Day</li><li>Alpha Diallo (F) — Day-To-Day</li><li>Spencer Jones (F) — Out</li><li>Julian Strawther (G) — Out</li></ul></div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="matchup">Portland Trail Blazers @ Phoenix Suns</span>
+        
+      </div>
+      <div class="tipoff">9:00 PM ET</div>
+
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+14.4 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">Phoenix Suns</span><span class="pick-prob">56.1%</span></div><div class="conf-bar"><span style="width:56%"></span></div>
+      </div>
+
+      <div class="section market">
+        <div>Market: <strong>Portland Trail Blazers</strong> 58.3%</div>
+        <div class="odds-line">DK: POR -155 / PHX +130 · Kalshi: POR 58.5% / PHX 42.5% · Polymarket: POR 57.5% / PHX 42.5%</div>
       </div>
 
       <div class="section">
-        <div class="section-title">Injury report</div>
+        <div class="section-title">Why</div>
+        <ul class="why"><li>Phoenix Suns are 2-8 over their last 10 games, on a 3-game losing streak, getting outscored by opponents by 10.7 points/game on average</li><li>Portland Trail Blazers are 6-4 over their last 10 games, on a 2-game winning streak, outscoring opponents by 1.6 points/game on average</li><li>Phoenix Suns have won 2 of the last 5 meetings with Portland Trail Blazers</li><li>Phoenix Suns are 1-1 at home this season</li><li>Portland Trail Blazers are 4-0 on the road this season</li></ul>
+      </div>
+
+      <details class="section injuries">
+        <summary class="section-title">Injury report (5)</summary>
         <div class="injury-group"><span class="injury-team">Portland Trail Blazers</span><ul><li>Ja Morant (G) — Out</li><li>Shaedon Sharpe (G) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Denver Nuggets</span><ul><li>Spencer Jones (F) — Out</li><li>Alpha Diallo (F) — Out</li><li>Julian Strawther (G) — Out</li></ul></div>
-      </div>
+        <div class="injury-group"><span class="injury-team">Phoenix Suns</span><ul><li>Jordan Goodwin (G) — Day-To-Day</li><li>Rasheer Fleming (F) — Day-To-Day</li><li>Mark Williams (C) — Out</li></ul></div>
+      </details>
     </div>
     <div class="card">
       <div class="card-header">
-        <span class="matchup">Phoenix Suns @ Golden State Warriors</span>
-        <span class="badge badge-live">LIVE · pre-kickoff card</span>
+        <span class="matchup">Dallas Mavericks @ San Antonio Spurs</span>
+        
       </div>
-      <div class="tipoff">10:00 PM ET</div>
+      <div class="tipoff">9:30 PM ET</div>
 
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Phoenix Suns</span> 70.7%</div>
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+1.2 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">San Antonio Spurs</span><span class="pick-prob">82.4%</span></div><div class="conf-bar"><span style="width:82%"></span></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Golden State Warriors</span> 55.3%</div>
-        <div class="odds-line">DK: PHX +115 / GS -136</div>
-        <div class="odds-line">Kalshi: PHX 43.5% / GS 56.5%</div>
-        <div class="odds-line">Polymarket: PHX 44.5% / GS 55.5%</div>
-        <div class="edge">Edge: +26.0 pts — model is more confident than the market</div>
+      <div class="section market">
+        <div>Market: <strong>San Antonio Spurs</strong> 81.2%</div>
+        <div class="odds-line">DK: DAL +411 / SA -545 · Kalshi: DAL 18.5% / SA 81.5% · Polymarket: DAL 18.5% / SA 81.5%</div>
       </div>
 
       <div class="section">
         <div class="section-title">Why</div>
-        <ul class="why"><li>Golden State Warriors are 5-5 over their last 10 games, on a 4-game winning streak, outscoring opponents by 0.5 points/game on average; Golden State Warriors are on a back-to-back (0 days rest)</li><li>Phoenix Suns are 2-8 over their last 10 games, on a 2-game losing streak, getting outscored by opponents by 10.8 points/game on average</li><li>Golden State Warriors have won 2 of the last 5 meetings with Phoenix Suns</li><li>Golden State Warriors are 2-1 at home this season</li><li>Phoenix Suns are 0-2 on the road this season</li></ul>
+        <ul class="why"><li>San Antonio Spurs are 6-4 over their last 10 games, on a 5-game winning streak, outscoring opponents by 6.4 points/game on average</li><li>Dallas Mavericks are 5-5 over their last 10 games, getting outscored by opponents by 0.3 points/game on average</li><li>San Antonio Spurs have won 5 of the last 5 meetings with Dallas Mavericks</li><li>San Antonio Spurs are 3-2 at home this season</li><li>Dallas Mavericks are 2-1 on the road this season</li></ul>
       </div>
 
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Phoenix Suns</span><ul><li>Mark Williams (C) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">Golden State Warriors</span><ul><li>Brandon Williams (G) — Out</li><li>Al Horford (C) — Out</li><li>Gui Santos (F) — Out</li><li>Kristaps Porzingis (C) — Out</li><li>Moses Moody (G) — Out</li><li>Jimmy Butler III (F) — Out</li></ul></div>
-      </div>
+      <details class="section injuries">
+        <summary class="section-title">Injury report (7)</summary>
+        <div class="injury-group"><span class="injury-team">Dallas Mavericks</span><ul><li>Max Christie (G) — Out</li><li>Santi Aldama (F) — Out</li><li>Tarik Biberovic (F) — Out</li><li>Dereck Lively II (C) — Out</li><li>Sergio de Larrea (F) — Out</li></ul></div>
+        <div class="injury-group"><span class="injury-team">San Antonio Spurs</span><ul><li>Tobias Harris (F) — Out</li><li>Jayden Quaintance (F) — Out</li></ul></div>
+      </details>
     </div>
     <div class="card">
       <div class="card-header">
-        <span class="matchup">Toronto Raptors @ LA Clippers</span>
-        <span class="badge badge-live">LIVE · pre-kickoff card</span>
+        <span class="matchup">Los Angeles Lakers @ Sacramento Kings</span>
+        
       </div>
       <div class="tipoff">10:00 PM ET</div>
 
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Toronto Raptors</span> 74.9%</div>
+      <div class="pick-box">
+        <div class="pick-label">Model pick <span class="chip chip-pos">+1.9 pts vs market</span></div>
+        <div class="pick-row"><span class="pick-big">Los Angeles Lakers</span><span class="pick-prob">83.7%</span></div><div class="conf-bar"><span style="width:84%"></span></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick">unavailable</div>
-        <div class="odds-line">DK: TOR unavailable / LAC unavailable</div>
-        <div class="odds-line">Kalshi: TOR 65.5% / LAC 34.5%</div>
-        <div class="odds-line">Polymarket: TOR 64.5% / LAC 35.5%</div>
-        <div class="edge">Edge: unavailable</div>
+      <div class="section market">
+        <div>Market: <strong>Los Angeles Lakers</strong> 81.8%</div>
+        <div class="odds-line">DK: LAL -574 / SAC +429 · Kalshi: LAL 83.5% / SAC 17.5% · Polymarket: LAL 82.5% / SAC 17.5%</div>
       </div>
 
       <div class="section">
         <div class="section-title">Why</div>
-        <ul class="why"><li>LA Clippers are 2-8 over their last 10 games, on a 5-game losing streak, getting outscored by opponents by 8.1 points/game on average; LA Clippers are on a back-to-back (0 days rest)</li><li>Toronto Raptors are 5-5 over their last 10 games, on a 2-game losing streak, outscoring opponents by 3.6 points/game on average; Toronto Raptors are on a back-to-back (0 days rest)</li><li>LA Clippers have won 4 of the last 5 meetings with Toronto Raptors</li><li>LA Clippers are 1-1 at home this season</li><li>Toronto Raptors are 1-2 on the road this season</li></ul>
+        <ul class="why"><li>Sacramento Kings are 2-8 over their last 10 games, getting outscored by opponents by 11.0 points/game on average</li><li>Los Angeles Lakers are 6-4 over their last 10 games, on a 2-game winning streak, outscoring opponents by 3.0 points/game on average</li><li>Sacramento Kings have won 1 of the last 5 meetings with Los Angeles Lakers</li><li>Sacramento Kings are 0-2 at home this season</li><li>Los Angeles Lakers are 2-1 on the road this season</li></ul>
       </div>
 
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Toronto Raptors</span><ul><li>Jakob Poeltl (C) — Out</li><li>Nate Bittle (C) — Out</li><li>Kawhi Leonard (F) — Out</li></ul></div>
-        <div class="injury-group"><span class="injury-team">LA Clippers</span><ul><li>Rui Hachimura (F) — Out</li><li>Derrick Jones Jr. (F) — Out</li><li>Yanic Konan Niederhauser (C) — Out</li><li>Brandon Ingram (F) — Out</li><li>Bradley Beal (G) — Out</li><li>Jordan Miller (G) — Out</li></ul></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="matchup">Miami Heat @ Los Angeles Lakers</span>
-        <span class="badge badge-live">LIVE · pre-kickoff card</span>
-      </div>
-      <div class="tipoff">10:00 PM ET</div>
-
-      <div class="section">
-        <div class="section-title">Model pick</div>
-        <div class="pick"><span class="pick-team">Los Angeles Lakers</span> 58.0%</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Market pick (de-vigged)</div>
-        <div class="pick"><span class="pick-team">Los Angeles Lakers</span> 55.3%</div>
-        <div class="odds-line">DK: MIA +115 / LAL -136</div>
-        <div class="odds-line">Kalshi: MIA 44.5% / LAL 56.5%</div>
-        <div class="odds-line">Polymarket: MIA 44.5% / LAL 55.5%</div>
-        <div class="edge">Edge: +2.7 pts — model is more confident than the market</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Why</div>
-        <ul class="why"><li>Los Angeles Lakers are 5-5 over their last 10 games, getting outscored by opponents by 0.9 points/game on average; Los Angeles Lakers are on a back-to-back (0 days rest)</li><li>Miami Heat are 4-6 over their last 10 games, on a 2-game winning streak, outscoring opponents by 1.5 points/game on average</li><li>Los Angeles Lakers have won 3 of the last 5 meetings with Miami Heat</li><li>Los Angeles Lakers are 3-1 at home this season</li><li>Miami Heat are 1-1 on the road this season</li></ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Injury report</div>
-        <div class="injury-group"><span class="injury-team">Miami Heat</span>none reported</div>
+      <details class="section injuries">
+        <summary class="section-title">Injury report (5)</summary>
         <div class="injury-group"><span class="injury-team">Los Angeles Lakers</span><ul><li>Adou Thiero (F) — Out</li></ul></div>
+        <div class="injury-group"><span class="injury-team">Sacramento Kings</span><ul><li>Precious Achiuwa (F) — Day-To-Day</li><li>Maxime Raynaud (C) — Out</li><li>Keegan Murray (F) — Out</li><li>Ben Simmons (G) — Out</li></ul></div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="matchup">Miami Heat @ LA Clippers</span>
+        
       </div>
-    </div></div>
+      <div class="tipoff">10:30 PM ET</div>
+
+      <div class="pick-box">
+        <div class="pick-label">Model pick </div>
+        <div class="pick-row"><span class="pick-big">Miami Heat</span><span class="pick-prob">73.9%</span></div><div class="conf-bar"><span style="width:74%"></span></div>
+      </div>
+
+      <div class="section market">
+        <div>Market: unavailable</div>
+        <div class="odds-line">DK: MIA unavailable / LAC unavailable · Kalshi: MIA 65.5% / LAC 34.5% · Polymarket: MIA 65.5% / LAC 34.5%</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Why</div>
+        <ul class="why"><li>LA Clippers are 2-8 over their last 10 games, on a 6-game losing streak, getting outscored by opponents by 7.0 points/game on average</li><li>Miami Heat are 4-6 over their last 10 games, outscoring opponents by 0.8 points/game on average</li><li>LA Clippers have won 3 of the last 5 meetings with Miami Heat</li><li>LA Clippers are 1-2 at home this season</li><li>Miami Heat are 1-2 on the road this season</li></ul>
+      </div>
+
+      <details class="section injuries">
+        <summary class="section-title">Injury report (6)</summary>
+        <div class="injury-group"><span class="injury-team">Miami Heat</span><ul><li>Myron Gardner (F) — Day-To-Day</li><li>Giannis Antetokounmpo (F) — Day-To-Day</li></ul></div>
+        <div class="injury-group"><span class="injury-team">LA Clippers</span><ul><li>Yanic Konan Niederhauser (C) — Out</li><li>Brandon Ingram (F) — Out</li><li>Bradley Beal (G) — Out</li><li>Jordan Miller (G) — Out</li></ul></div>
+      </details>
+    </div></div><h2>NBA player props <span class="badge badge-final">experimental</span></h2><p class="props-note">Overs at 60%+ only. My projection from ESPN season averages, blended 50/50 with DraftKings' no-vig price ("Chance"). Lines are pulled within ~6 hours of tip, as odds-API credits allow. See MODEL.md section 8.</p><h3 class="sub">Player projections <span class="muted">(tap a player for their props)</span></h3><details class="proj-game"><summary><span class="g-title">PHI @ DET</span> <span class="muted">7:00 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Tyrese Maxey <span class="muted">PHI</span></span><span>37</span><span>28.4</span><span>4.1</span><span>6.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jaylen Brown <span class="muted">PHI</span></span><span>36</span><span>26.2</span><span>7.1</span><span>4.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">VJ Edgecombe <span class="muted">PHI</span></span><span>34</span><span>14.4</span><span>6.0</span><span>3.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">LeBron James <span class="muted">PHI</span></span><span>33</span><span>19.3</span><span>6.4</span><span>7.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Joel Embiid <span class="muted">PHI</span></span><span>33</span><span>24.9</span><span>8.4</span><span>4.3</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Cade Cunningham <span class="muted">DET</span></span><span>33</span><span>23.3</span><span>5.3</span><span>8.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Duncan Robinson <span class="muted">DET</span></span><span>30</span><span>14.8</span><span>2.6</span><span>2.3</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Ausar Thompson <span class="muted">DET</span></span><span>26</span><span>10.0</span><span>6.2</span><span>3.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">ATL @ WSH</span> <span class="muted">7:00 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Trae Young <span class="muted">WSH</span></span><span>35</span><span>22.3</span><span>3.0</span><span>10.4</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Anthony Davis <span class="muted">WSH</span></span><span>33</span><span>22.0</span><span>10.7</span><span>2.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Kyshawn George <span class="muted">WSH</span></span><span>32</span><span>16.1</span><span>5.1</span><span>4.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Nickeil Alexander-Walker <span class="muted">ATL</span></span><span>31</span><span>19.9</span><span>3.2</span><span>3.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">AJ Dybantsa <span class="muted">WSH</span></span><span>30</span><span>19.0</span><span>4.7</span><span>1.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Dyson Daniels <span class="muted">ATL</span></span><span>30</span><span>10.4</span><span>5.9</span><span>4.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Onyeka Okongwu <span class="muted">ATL</span></span><span>29</span><span>13.5</span><span>7.3</span><span>2.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Bilal Coulibaly <span class="muted">WSH</span></span><span>27</span><span>10.8</span><span>4.2</span><span>2.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">MIL @ BOS</span> <span class="muted">7:30 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Paul George <span class="muted">BOS</span></span><span>31</span><span>18.5</span><span>5.5</span><span>4.1</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Derrick White <span class="muted">BOS</span></span><span>31</span><span>13.6</span><span>3.7</span><span>4.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Tyler Herro <span class="muted">MIL</span></span><span>30</span><span>20.6</span><span>4.8</span><span>4.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jaime Jaquez Jr. <span class="muted">MIL</span></span><span>28</span><span>15.7</span><span>5.7</span><span>4.1</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Myles Turner <span class="muted">MIL</span></span><span>27</span><span>10.7</span><span>5.2</span><span>1.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Kyle Kuzma <span class="muted">MIL</span></span><span>26</span><span>12.1</span><span>5.1</span><span>2.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Ryan Rollins <span class="muted">MIL</span></span><span>26</span><span>13.2</span><span>3.9</span><span>4.5</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Neemias Queta <span class="muted">BOS</span></span><span>22</span><span>9.3</span><span>6.8</span><span>1.4</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">CHA @ BKN</span> <span class="muted">7:30 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Julius Randle <span class="muted">BKN</span></span><span>34</span><span>21.4</span><span>7.2</span><span>5.1</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Brandon Miller <span class="muted">CHA</span></span><span>33</span><span>22.6</span><span>5.4</span><span>3.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Michael Porter Jr. <span class="muted">BKN</span></span><span>32</span><span>22.9</span><span>7.1</span><span>2.4</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Dennis Schroder <span class="muted">CHA</span></span><span>30</span><span>12.4</span><span>3.4</span><span>5.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Moussa Diabate <span class="muted">CHA</span></span><span>28</span><span>8.8</span><span>9.5</span><span>2.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Naz Reid <span class="muted">CHA</span></span><span>28</span><span>15.0</span><span>7.3</span><span>2.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Grayson Allen <span class="muted">CHA</span></span><span>27</span><span>15.2</span><span>2.8</span><span>3.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Sion James <span class="muted">CHA</span></span><span>24</span><span>5.4</span><span>3.5</span><span>2.4</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">CHI @ NY</span> <span class="muted">7:30 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Jalen Brunson <span class="muted">NY</span></span><span>35</span><span>25.4</span><span>3.1</span><span>6.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Caleb Wilson <span class="muted">CHI</span></span><span>34</span><span>21.6</span><span>6.7</span><span>2.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">OG Anunoby <span class="muted">NY</span></span><span>34</span><span>16.8</span><span>5.4</span><span>2.4</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Karl-Anthony Towns <span class="muted">NY</span></span><span>32</span><span>20.5</span><span>12.8</span><span>3.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Norman Powell <span class="muted">CHI</span></span><span>30</span><span>21.3</span><span>3.2</span><span>2.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Josh Giddey <span class="muted">CHI</span></span><span>28</span><span>13.0</span><span>6.5</span><span>7.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Mikal Bridges <span class="muted">NY</span></span><span>27</span><span>10.0</span><span>3.0</span><span>2.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Matas Buzelis <span class="muted">CHI</span></span><span>26</span><span>14.0</span><span>4.9</span><span>1.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">IND @ MEM</span> <span class="muted">8:00 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Andrew Nembhard <span class="muted">IND</span></span><span>33</span><span>17.8</span><span>2.7</span><span>7.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Pascal Siakam <span class="muted">IND</span></span><span>32</span><span>22.7</span><span>6.8</span><span>3.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Cameron Boozer <span class="muted">MEM</span></span><span>32</span><span>17.4</span><span>10.3</span><span>5.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Ty Jerome <span class="muted">MEM</span></span><span>30</span><span>26.3</span><span>3.6</span><span>6.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Cedric Coward <span class="muted">MEM</span></span><span>28</span><span>14.2</span><span>7.1</span><span>2.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jaylen Wells <span class="muted">MEM</span></span><span>28</span><span>13.0</span><span>3.4</span><span>1.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jerami Grant <span class="muted">MEM</span></span><span>25</span><span>13.9</span><span>2.9</span><span>1.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jarace Walker <span class="muted">IND</span></span><span>25</span><span>10.1</span><span>5.3</span><span>2.3</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">UTAH @ NO</span> <span class="muted">8:00 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Zion Williamson <span class="muted">NO</span></span><span>32</span><span>22.0</span><span>5.8</span><span>3.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Dejounte Murray <span class="muted">NO</span></span><span>31</span><span>18.5</span><span>6.0</span><span>6.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Keyonte George <span class="muted">UTAH</span></span><span>31</span><span>21.3</span><span>3.8</span><span>5.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Darryn Peterson <span class="muted">UTAH</span></span><span>30</span><span>13.4</span><span>4.3</span><span>3.3</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Lauri Markkanen <span class="muted">UTAH</span></span><span>30</span><span>21.2</span><span>6.0</span><span>1.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Ace Bailey <span class="muted">UTAH</span></span><span>30</span><span>13.9</span><span>5.6</span><span>2.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jeremiah Fears <span class="muted">NO</span></span><span>27</span><span>14.3</span><span>4.0</span><span>4.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Saddiq Bey <span class="muted">NO</span></span><span>27</span><span>15.4</span><span>4.5</span><span>2.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">CLE @ OKC</span> <span class="muted">8:00 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">James Harden <span class="muted">CLE</span></span><span>34</span><span>20.5</span><span>4.7</span><span>7.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Shai Gilgeous-Alexander <span class="muted">OKC</span></span><span>34</span><span>30.3</span><span>4.3</span><span>5.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Donovan Mitchell <span class="muted">CLE</span></span><span>33</span><span>25.6</span><span>4.8</span><span>5.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Evan Mobley <span class="muted">CLE</span></span><span>33</span><span>18.8</span><span>8.8</span><span>3.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jarrett Allen <span class="muted">CLE</span></span><span>28</span><span>15.6</span><span>8.7</span><span>1.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Ajay Mitchell <span class="muted">OKC</span></span><span>27</span><span>15.0</span><span>3.5</span><span>3.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Sam Merrill <span class="muted">CLE</span></span><span>24</span><span>10.8</span><span>2.6</span><span>2.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Isaiah Hartenstein <span class="muted">OKC</span></span><span>24</span><span>9.2</span><span>9.6</span><span>3.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">MIN @ HOU</span> <span class="muted">8:30 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Jabari Smith Jr. <span class="muted">HOU</span></span><span>35</span><span>16.7</span><span>6.6</span><span>2.1</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Alperen Sengun <span class="muted">HOU</span></span><span>34</span><span>21.7</span><span>9.0</span><span>6.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Kevin Durant <span class="muted">HOU</span></span><span>34</span><span>22.9</span><span>5.2</span><span>3.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Amen Thompson <span class="muted">HOU</span></span><span>33</span><span>16.3</span><span>6.6</span><span>4.3</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jaden McDaniels <span class="muted">MIN</span></span><span>33</span><span>15.8</span><span>5.0</span><span>3.1</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Rudy Gobert <span class="muted">MIN</span></span><span>30</span><span>9.5</span><span>11.4</span><span>1.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jonathan Kuminga <span class="muted">MIN</span></span><span>30</span><span>14.3</span><span>6.5</span><span>2.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Fred VanVleet <span class="muted">HOU</span></span><span>30</span><span>12.2</span><span>3.7</span><span>6.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">TOR @ DEN</span> <span class="muted">9:00 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Jamal Murray <span class="muted">DEN</span></span><span>38</span><span>27.1</span><span>5.0</span><span>6.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Nikola Jokic <span class="muted">DEN</span></span><span>37</span><span>26.6</span><span>12.2</span><span>10.4</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Christian Braun <span class="muted">DEN</span></span><span>36</span><span>14.0</span><span>4.9</span><span>2.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Scottie Barnes <span class="muted">TOR</span></span><span>34</span><span>20.5</span><span>7.7</span><span>5.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">RJ Barrett <span class="muted">TOR</span></span><span>32</span><span>20.6</span><span>5.8</span><span>3.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Immanuel Quickley <span class="muted">TOR</span></span><span>32</span><span>16.9</span><span>4.0</span><span>5.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Aaron Gordon <span class="muted">DEN</span></span><span>30</span><span>15.5</span><span>6.1</span><span>2.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Ja&#x27;Kobe Walter <span class="muted">TOR</span></span><span>28</span><span>10.7</span><span>3.7</span><span>1.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">POR @ PHX</span> <span class="muted">9:00 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Devin Booker <span class="muted">PHX</span></span><span>35</span><span>25.7</span><span>3.9</span><span>5.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Miles Bridges <span class="muted">PHX</span></span><span>33</span><span>17.7</span><span>6.4</span><span>3.1</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Deni Avdija <span class="muted">POR</span></span><span>32</span><span>23.6</span><span>6.6</span><span>6.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Dillon Brooks <span class="muted">PHX</span></span><span>30</span><span>19.0</span><span>3.7</span><span>2.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Damian Lillard <span class="muted">POR</span></span><span>29</span><span>19.3</span><span>4.3</span><span>4.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Jalen Green <span class="muted">PHX</span></span><span>28</span><span>17.0</span><span>3.8</span><span>3.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Toumani Camara <span class="muted">POR</span></span><span>28</span><span>12.2</span><span>3.8</span><span>1.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Collin Gillespie <span class="muted">PHX</span></span><span>27</span><span>10.9</span><span>3.4</span><span>4.5</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">DAL @ SA</span> <span class="muted">9:30 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">P.J. Washington <span class="muted">DAL</span></span><span>34</span><span>14.7</span><span>7.6</span><span>1.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Cooper Flagg <span class="muted">DAL</span></span><span>34</span><span>22.4</span><span>6.4</span><span>5.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Dylan Harper <span class="muted">SA</span></span><span>31</span><span>16.8</span><span>5.0</span><span>5.3</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Victor Wembanyama <span class="muted">SA</span></span><span>31</span><span>26.2</span><span>11.7</span><span>3.3</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Devin Vassell <span class="muted">SA</span></span><span>31</span><span>13.3</span><span>4.0</span><span>2.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">De&#x27;Aaron Fox <span class="muted">SA</span></span><span>31</span><span>17.5</span><span>4.0</span><span>6.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Stephon Castle <span class="muted">SA</span></span><span>29</span><span>15.7</span><span>5.3</span><span>6.5</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Kyrie Irving <span class="muted">DAL</span></span><span>29</span><span>21.4</span><span>3.4</span><span>4.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">LAL @ SAC</span> <span class="muted">10:00 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Darius Acuff Jr. <span class="muted">SAC</span></span><span>37</span><span>26.1</span><span>3.9</span><span>6.3</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Luka Doncic <span class="muted">LAL</span></span><span>36</span><span>35.3</span><span>7.8</span><span>8.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Austin Reaves <span class="muted">LAL</span></span><span>36</span><span>23.8</span><span>4.2</span><span>5.4</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Domantas Sabonis <span class="muted">SAC</span></span><span>35</span><span>17.2</span><span>13.8</span><span>5.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Zach LaVine <span class="muted">SAC</span></span><span>33</span><span>21.3</span><span>3.0</span><span>2.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Walker Kessler <span class="muted">LAL</span></span><span>31</span><span>14.4</span><span>10.7</span><span>2.4</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">De&#x27;Andre Hunter <span class="muted">SAC</span></span><span>30</span><span>14.6</span><span>4.8</span><span>1.9</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Quentin Grimes <span class="muted">LAL</span></span><span>27</span><span>10.9</span><span>3.3</span><span>3.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details><details class="proj-game"><summary><span class="g-title">MIA @ LAC</span> <span class="muted">10:30 PM · no DK lines yet</span></summary><div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span><span>Reb</span><span>Ast</span></div><details class="player"><summary class="prow"><span class="pname">Davion Mitchell <span class="muted">MIA</span></span><span>33</span><span>12.5</span><span>2.5</span><span>7.6</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Darius Garland <span class="muted">LAC</span></span><span>33</span><span>20.3</span><span>2.3</span><span>7.0</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Bam Adebayo <span class="muted">MIA</span></span><span>32</span><span>18.4</span><span>9.1</span><span>3.2</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Rui Hachimura <span class="muted">LAC</span></span><span>30</span><span>12.4</span><span>4.1</span><span>0.8</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Kris Dunn <span class="muted">LAC</span></span><span>29</span><span>8.2</span><span>3.7</span><span>4.1</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Pelle Larsson <span class="muted">MIA</span></span><span>29</span><span>12.1</span><span>3.7</span><span>3.7</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Derrick Jones Jr. <span class="muted">LAC</span></span><span>28</span><span>10.9</span><span>4.0</span><span>1.5</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details><details class="player"><summary class="prow"><span class="pname">Andrew Wiggins <span class="muted">MIA</span></span><span>27</span><span>12.8</span><span>3.8</span><span>2.1</span></summary><div class="muted no-lines">No DraftKings lines yet (pulled ~6 hours before tip).</div></details></details>
     <footer>Model methodology: see MODEL.md in the source repo. Data: ESPN, the-odds-api.com (DraftKings), Kalshi, Polymarket.</footer>
   </div>
 </body>
