@@ -74,12 +74,15 @@ DOUBTFUL_WEIGHT = 0.5
 # out) as of 2026-09.
 SHORT_TERM_IR_MAX_DAYS = 90
 
-# ...except a season-ending IR player who was playing until very recently: Elo has only
-# seen a game or two without him, so his absence is NOT baked in yet (2026-10-26: Hurts
-# went on season-ending IR after one missed game and the model ignored him entirely).
-# Such a player counts at weight 1 - (team games played since his last game) / N,
-# fading to 0 once the team has played N games without him and Elo has caught up.
-LONG_TERM_IR_PHASE_IN_GAMES = {"NBA": 10, "NFL": 4}
+# Every counted absence (Out, Doubtful, IR) fades as Elo absorbs it: weight is multiplied by
+# 1 - (team games this season since the player's last game) / N, reaching 0 after N games.
+# A player who hasn't played at all this season counts from the season's first game, so a
+# season-long absence is penalized in full at the start and fades out as the team's own
+# results take over. (2026-10-26: Hurts went on season-ending IR after one missed game and
+# was ignored -- long-term IR was always dropped. 2026-11-05: the reverse -- Butler,
+# Porzingis and Moody, out since last season, cost GS ~210 Elo every game while GS won 5
+# straight without them; the model went 0-4 picking against GS.)
+ABSENCE_PHASE_IN_GAMES = {"NBA": 10, "NFL": 4}
 
 # Manual injury entries merged into ESPN's feed. ESPN sometimes drops a player outright
 # (2026-10-26: Hurts vanished from the feed hours before kickoff, so the 6:35pm run
@@ -200,19 +203,23 @@ def _is_short_term_ir(entry, game_date_iso):
     return days_out <= SHORT_TERM_IR_MAX_DAYS
 
 
-def _long_term_ir_weight(conn, league, team_abbr, entry, game_date_iso):
-    """Weight (0-1) for a season-ending IR player: 1 - (team games since his last game
-    this season) / LONG_TERM_IR_PHASE_IN_GAMES, or 0 if he hasn't played this season or
-    Elo has had enough games to absorb his absence. See LONG_TERM_IR_PHASE_IN_GAMES."""
+def _unabsorbed_weight(conn, league, team_abbr, entry, game_date_iso, if_unknown=1.0):
+    """Share (0-1) of an absence Elo hasn't absorbed yet: 1 - (team games this season since
+    the player's last game, or since the season began if he hasn't played) /
+    ABSENCE_PHASE_IN_GAMES. if_unknown is returned when that can't be determined (no DB,
+    or the ESPN gamelog lookup failed)."""
     if conn is None or team_abbr is None:
-        return 0.0
+        return if_unknown
     last_played = espn.get_athlete_last_game_date(league, entry.get("athlete_id"))
     if last_played is None:
-        return 0.0
-    n = LONG_TERM_IR_PHASE_IN_GAMES[league]
-    games_since = len([g for g in elo.recent_games(conn, league, team_abbr, game_date_iso, limit=n)
-                       if g[0] > last_played])
-    return max(1.0 - games_since / n, 0.0)
+        return if_unknown
+    season = str(seasons.season_for(league, datetime.fromisoformat(game_date_iso).date()))
+    games_since = conn.execute(
+        """SELECT COUNT(*) FROM games WHERE league=? AND season=? AND (home_team=? OR away_team=?)
+           AND date > ? AND date < ?""",
+        (league, season, team_abbr, team_abbr, last_played, game_date_iso),
+    ).fetchone()[0]
+    return max(1.0 - games_since / ABSENCE_PHASE_IN_GAMES[league], 0.0)
 
 
 def injury_overrides(league, team_abbr, game_date_iso):
@@ -255,23 +262,21 @@ def injury_adjustment(league, espn_team_id, game_date_iso, conn=None, team_abbr=
     relevant = []
     for i in injuries:
         status = (i.get("status") or "").lower()
-        if status == "injured reserve":
-            if _is_short_term_ir(i, game_date_iso):
-                weight = 1.0
-            else:
-                # long-term/season-ending: drop entirely unless he was lost so recently
-                # that Elo hasn't absorbed it yet
-                weight = _long_term_ir_weight(conn, league, team_abbr, i, game_date_iso)
-                if weight <= 0:
-                    continue
+        long_term_ir = status == "injured reserve" and not _is_short_term_ir(i, game_date_iso)
+        if status in ("injured reserve", "out"):
+            weight = 1.0
         elif status == "doubtful":
             weight = DOUBTFUL_WEIGHT
-        elif status == "out":
-            weight = 1.0
         else:
             weight = None  # e.g. Questionable: shown, but doesn't move the number
-        relevant.append(i)
         if weight is not None:
+            # a failed lookup keeps the old behavior: Out counts in full, long-term IR is dropped
+            weight *= _unabsorbed_weight(conn, league, team_abbr, i, game_date_iso,
+                                         if_unknown=0.0 if long_term_ir else 1.0)
+            if long_term_ir and weight <= 0:
+                continue  # long-term/season-ending and already absorbed: not today's-game news
+        relevant.append(i)
+        if weight:
             total += player_out_penalty(league, i.get("athlete_id"), i.get("position")) * weight
     total = max(total, cap)
     return total, relevant, True

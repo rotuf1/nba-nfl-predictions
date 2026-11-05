@@ -358,7 +358,7 @@ def get_nba_boxscore(event_id):
 def get_athlete_last_game_date(league, athlete_id):
     """
     ET date (YYYY-MM-DD) of the player's most recent regular/postseason game this
-    season, or None if he hasn't played one (or on failure). Preseason games are
+    season, "" if he hasn't played one, or None on failure. Preseason games are
     ignored. Used to tell a just-placed season-ending IR player (absence not yet in
     Elo) from one who has been out a while.
     """
@@ -388,7 +388,7 @@ def get_athlete_last_game_date(league, athlete_id):
     except (KeyError, TypeError, ValueError) as e:
         log.warning("Failed to parse ESPN gamelog for %s athlete %s: %s", league, athlete_id, e)
         return None
-    return max(dates).isoformat() if dates else None
+    return max(dates).isoformat() if dates else ""
 
 
 def get_scoreboard_team_ids(league, scoreboard_json):

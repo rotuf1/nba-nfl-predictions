@@ -119,12 +119,17 @@ weeks as of 2026-09) means short-term/designated-to-return; their generic season
 placeholder date (empirically, always ~5+ months out) means long-term — see
 `SHORT_TERM_IR_MAX_DAYS` / `_is_short_term_ir()` in `daily_run.py`.
 
-One exception to excluding season-ending IR (added 2026-10-26, after Jalen Hurts went on
-season-ending IR having missed only one game and the model ignored him): if the player played a
-regular-season game *this season*, his absence is phased in at weight
-`1 - (team games since his last game) / N`, with N = **4** (NFL) / **10** (NBA). Once his team has
-played N games without him, Elo has absorbed it and he drops out as before. The player's last game
-date comes from his ESPN gamelog -- see `LONG_TERM_IR_PHASE_IN_GAMES` / `_long_term_ir_weight()`.
+**Absences fade as Elo absorbs them** (2026-11-05; replaces a long-term-IR-only version from
+2026-10-26). Every counted absence -- Out, Doubtful, short-term IR, and season-ending IR -- has its
+weight multiplied by `1 - (team games this season since the player's last game) / N`, with N = **4**
+(NFL) / **10** (NBA). A player who hasn't played at all this season counts from the season's first
+game, so a season-long absence is penalized in full on opening night and fades as the team's own
+results take over. Season-ending IR players drop off the card once fully faded. The last game date
+comes from the player's ESPN gamelog; if that lookup fails, Out counts in full and long-term IR is
+dropped. Why: Jalen Hurts (season-ending IR after one missed game) was ignored entirely, and in the
+other direction Butler, Porzingis and Moody -- out since last season -- cost Golden State ~210 Elo
+every game while GS won 5 straight without them (the model went 0-4 picking against them). See
+`ABSENCE_PHASE_IN_GAMES` / `_unabsorbed_weight()`.
 
 **Manual overrides** (`data/injury_overrides.json`, added 2026-10-26): ESPN's feed can drop a player
 outright -- Hurts vanished from it hours before DAL@PHI kicked off, so the last pre-kickoff run
