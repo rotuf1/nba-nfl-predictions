@@ -283,12 +283,22 @@ correct/incorrect count (overall and per league) is shown on the site above the 
 - **Probability of the over**: rebounds/assists negative binomial, points normal, each with
   variance = ratio x mean (`VAR_RATIO`: 1.35 / 1.35 / 2.4). The shown "Chance" is that
   probability averaged 50/50 with DraftKings' no-vig price.
-- **Pick rule**: over only, Chance >= 60% (nothing below 60% is shown at all), model within 20 points of DK (bigger gaps are
-  usually news the model lacks), top 4 per game. Re-picked on every run until tip, then locked.
+- **Kalshi** (added 2026-11-10, free, every game, every run): Kalshi's NBA player markets
+  (`KXNBAPTS`/`REB`/`AST`/`PRA`, thresholds like "25+ points" = over 24.5). Market probability = mid
+  of yes bid/ask; cost of the over = yes ask + Kalshi's fee (~0.07 x p x (1-p) per $1 contract).
+  Per player and stat, only the threshold with the most value is kept, and nothing costing over
+  85 cents. **PRA** projection = PTS+REB+AST, normal, with the summed variance's sd widened 1.25x
+  because the parts move together.
+- **Pick rule**: over only, Chance >= 60% (nothing below 60% is shown at all), Chance beats the
+  price's implied probability by at least 2 points (`MIN_EV`), model within 20 points of the
+  market (bigger gaps are usually news the model lacks), ranked by that expected value, top 4 per
+  game, one per player and stat (DK or Kalshi). Re-picked on every run until tip, then locked.
+  (Before 2026-11-10 picks were ranked by Chance with no value check -- that picked heavy favorites
+  like -193 overs that need 66% to break even.)
 - **Lines and credits**: DK lines come from the-odds-api (3 credits per game: points, rebounds,
   assists), fetched once per game within 6 hours of tip. Each run, today's allowance is
   `(remaining + spent_today - 10 x days_left_in_month) / days_left - spent_today`, so props never
-  eat the credits the moneyline odds need. Games without lines still show projections.
+  eat the credits the moneyline odds need. Kalshi needs no credits.
 - **Grading**: from ESPN box scores once final; win if actual > line. DNP or ungraded after 4
   days = void. Record shown as W-L and profit at $100 per pick at the DK price.
 - **Not modeled**: opponent defense/pace, teammates' absences boosting usage, back-to-backs,

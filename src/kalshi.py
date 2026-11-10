@@ -83,6 +83,40 @@ def _extract_probs(markets, home_kalshi, away_kalshi):
     return {"home_prob": home_prob, "away_prob": away_prob}
 
 
+# NBA player-prop series. Each game is one event per series, same ticker convention as the
+# game markets (e.g. "KXNBAPRA-26NOV10MIAUTA"), with one binary market per player per
+# threshold ("Name: 25+ points", floor_strike 24.5, strike_type "greater").
+PLAYER_SERIES = {"PTS": "KXNBAPTS", "REB": "KXNBAREB", "AST": "KXNBAAST", "PRA": "KXNBAPRA"}
+
+
+def get_nba_player_markets(date_et, home_abbr, away_abbr):
+    """
+    [{player, stat, line, bid, ask}] for one game's Kalshi player markets, where line is
+    the over line (24.5 for "25+") and bid/ask are the yes prices in dollars. [] if Kalshi
+    has none or the fetch fails. Free -- no API key.
+    """
+    home_k = _espn_to_kalshi_abbr("NBA", home_abbr)
+    away_k = _espn_to_kalshi_abbr("NBA", away_abbr)
+    date_component = _date_ticker_component(date_et)
+    out = []
+    for stat, series in PLAYER_SERIES.items():
+        for m in _fetch_markets_for_event(f"{series}-{date_component}{away_k}{home_k}") or []:
+            if m.get("strike_type") != "greater" or m.get("floor_strike") is None:
+                continue
+            try:
+                bid = float(m.get("yes_bid_dollars") or 0)
+                ask = float(m.get("yes_ask_dollars") or 0)
+                line = float(m["floor_strike"])
+            except (TypeError, ValueError):
+                continue
+            if not 0 < bid <= ask < 1:
+                continue  # no two-sided market
+            name = (m.get("title") or "").split(":")[0].strip()
+            if name:
+                out.append({"player": name, "stat": stat, "line": line, "bid": bid, "ask": ask})
+    return out
+
+
 def get_game_market(league, date_et, home_abbr, away_abbr):
     """
     Returns {"home_prob": float, "away_prob": float, "event_ticker": str} or None if no

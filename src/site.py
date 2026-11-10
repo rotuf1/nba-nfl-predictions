@@ -159,6 +159,14 @@ def render_record(record):
             f'(correct picks vs. incorrect, final games only)</span> {" · ".join(parts)}</div>')
 
 
+def fmt_price(book, american):
+    """'DK -127', or 'Kalshi 72¢' (the cost of a $1 contract, fee included)."""
+    if book != "Kalshi":
+        return f"DK {fmt_odds(american)}"
+    cost = -american / (-american + 100) if american < 0 else 100 / (american + 100)
+    return f"Kalshi {cost * 100:.0f}¢"
+
+
 def render_props(props_data):
     """NBA player-prop section (src/props.py's run() output), or "" if there's nothing."""
     if not props_data or not (props_data["picks"] or props_data["projections"]):
@@ -175,7 +183,8 @@ def render_props(props_data):
                         "void": '<span class="res-void">void</span>'}
         rows = "".join(
             f"<tr><td><strong>{esc(p['player'])}</strong> <span class=\"muted\">{esc(p['team'])}</span></td>"
-            f"<td><span class=\"prop-pick\">Over {p['line']:g} {esc(p['stat'])}</span></td><td>{fmt_odds(p['price'])}</td>"
+            f"<td><span class=\"prop-pick\">Over {p['line']:g} {esc(p['stat'])}</span></td>"
+            f"<td>{fmt_price(p.get('book') or 'DK', p['price'])}</td>"
             f"<td>{p['proj']:.1f}</td><td><strong>{p['prob'] * 100:.0f}%</strong></td>"
             f"<td>{result_badge.get(p['result'], '')}"
             f"{'' if p['actual'] is None else ' ' + format(p['actual'], 'g')}</td>"
@@ -183,7 +192,7 @@ def render_props(props_data):
             for p in props_data["picks"]
         )
         picks_html = (f'<div class="table-wrap"><table class="props"><thead><tr><th>Player</th><th>Pick</th>'
-                      f'<th>DK</th><th>Proj</th><th>Chance</th><th>Result</th><th>Game</th></tr></thead>'
+                      f'<th>Price</th><th>Proj</th><th>Chance</th><th>Result</th><th>Game</th></tr></thead>'
                       f'<tbody>{rows}</tbody></table></div>')
 
     proj_html = ""
@@ -196,15 +205,15 @@ def render_props(props_data):
             if pl["props"]:
                 rows = "".join(
                     f'<tr class="{"is-pick" if e["pick"] else ""}"><td>{esc(e["stat"])}</td>'
-                    f'<td>Over {e["line"]:g}</td><td>{fmt_odds(e["price"])}</td>'
+                    f'<td>Over {e["line"]:g}</td><td>{fmt_price(e["book"], e["price"])}</td>'
                     f'<td>{pl["proj"][e["stat"]]:.1f}</td><td>{e["chance"] * 100:.0f}%</td>'
                     f'<td>{pick_tag if e["pick"] else ""}</td></tr>'
                     for e in pl["props"])
-                body = (f'<table class="props mini"><thead><tr><th>Stat</th><th>Line</th><th>DK over</th>'
+                body = (f'<table class="props mini"><thead><tr><th>Stat</th><th>Line</th><th>Price</th>'
                         f'<th>Proj</th><th>Chance</th><th></th></tr></thead><tbody>{rows}</tbody></table>')
             else:
                 body = (f'<div class="muted no-lines">'
-                        f'{"No props at 60%+." if has_lines else "No DraftKings lines yet (pulled ~6 hours before tip)."}'
+                        f'{"No props at 60%+." if has_lines else "No prop lines yet."}'
                         f'</div>')
             return (f'<details class="player"><summary class="prow">'
                     f'<span class="pname">{esc(pl["name"])} <span class="muted">{esc(pl["team"])}</span>'
@@ -216,7 +225,7 @@ def render_props(props_data):
         blocks = ""
         for g in props_data["projections"]:
             status = (f'{g["n_picks"]} pick{"" if g["n_picks"] == 1 else "s"}' if g["has_lines"]
-                      else "no DK lines yet")
+                      else "no lines yet")
             blocks += (f'<details class="proj-game"><summary><span class="g-title">{esc(g["matchup"])}</span> '
                        f'<span class="muted">{esc(g["tipoff"])} · {status}</span></summary>'
                        f'<div class="prow prow-head"><span>Player</span><span>Min</span><span>Pts</span>'
@@ -227,8 +236,9 @@ def render_props(props_data):
 
     return (f'<h2>NBA player props <span class="badge badge-final">experimental</span></h2>'
             f'<p class="props-note">Overs at 60%+ only. My projection from ESPN season averages, blended 50/50 '
-            f'with DraftKings\' no-vig price ("Chance"). Lines are pulled within ~6 hours of tip, '
-            f'as odds-API credits allow. See MODEL.md section 8.</p>{rec_html}{picks_html}{proj_html}')
+            f'with the market price ("Chance"). Kalshi prices (points, rebounds, assists, PRA) cover every game; '
+            f'DraftKings lines are added within ~6 hours of tip as odds-API credits allow. Kalshi prices '
+            f'include its trading fee. See MODEL.md section 8.</p>{rec_html}{picks_html}{proj_html}')
 
 
 def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None, props_data=None):

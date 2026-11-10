@@ -13,7 +13,7 @@ import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
-from src import elo, espn, odds_api
+from src import elo, espn, kalshi, odds_api
 
 log = logging.getLogger(__name__)
 
@@ -30,11 +30,25 @@ K_GAMES = 1
 # Game-to-game spread: rebounds/assists negative binomial with variance = ratio * mean,
 # points normal with variance = ratio * mean (sd ~7 for a 20-ppg scorer).
 VAR_RATIO = {"PTS": 2.4, "REB": 1.35, "AST": 1.35}
+# PRA = PTS+REB+AST, treated as normal. Its parts rise and fall together within a game, so
+# the summed variance understates the spread; widen the sd by this factor.
+PRA_SD_FACTOR = 1.25
+STAT_ORDER = ("PTS", "REB", "AST", "PRA")
 
-# Only overs whose probability (model blended 50/50 with DK's no-vig price) is at least
-# MIN_BLEND are shown at all; a pick is one of those where model and DK disagree by at most MAX_DISAGREEMENT (bigger gaps are
-# almost always news the model doesn't have, like a role change).
+# Kalshi player markets (free, every game, every run). Buying the over costs the yes ask
+# plus Kalshi's trading fee (~0.07 x p x (1-p) per $1 contract). A Kalshi prop is only
+# shown if its Chance covers that cost, and never above KALSHI_MAX_COST (near-locks with
+# almost no payout).
+KALSHI_FEE_RATE = 0.07
+KALSHI_MAX_COST = 0.85
+
+# Only overs whose probability ("Chance": model blended 50/50 with the market price) is at
+# least MIN_BLEND are shown at all. A pick is one of those whose Chance beats the price
+# actually paid by at least MIN_EV and where model and market disagree by at most
+# MAX_DISAGREEMENT (bigger gaps are almost always news the model doesn't have, like a role
+# change); picks are ranked by expected value, top MAX_PICKS_PER_GAME per game.
 MIN_BLEND = 0.60
+MIN_EV = 0.02  # Chance minus the price's implied probability; smaller edges are within model error
 MAX_DISAGREEMENT = 0.20
 MAX_PICKS_PER_GAME = 4
 PROJECTED_PLAYERS_PER_GAME = 8  # plus anyone else DK has lines for
@@ -51,7 +65,10 @@ def ensure_tables(conn):
         event_id TEXT NOT NULL, game_date TEXT NOT NULL, matchup TEXT, athlete_id TEXT NOT NULL,
         player TEXT, team TEXT, stat TEXT NOT NULL, line REAL, price INTEGER, proj REAL,
         prob REAL, market_prob REAL, graded INTEGER NOT NULL DEFAULT 0, result TEXT,
-        actual REAL, created_at TEXT, PRIMARY KEY (event_id, athlete_id, stat))""")
+        actual REAL, created_at TEXT, book TEXT DEFAULT 'DK',
+        PRIMARY KEY (event_id, athlete_id, stat))""")
+    if "book" not in {r[1] for r in conn.execute("PRAGMA table_info(prop_picks)")}:
+        conn.execute("ALTER TABLE prop_picks ADD COLUMN book TEXT DEFAULT 'DK'")
     conn.commit()
 
 
@@ -88,6 +105,7 @@ def project(avgs, season_year):
         else:
             rate = cur[key] / cur["min"]
         out[stat] = rate * mins
+    out["PRA"] = out["PTS"] + out["REB"] + out["AST"]
     return mins, out
 
 
@@ -106,6 +124,21 @@ def prob_over(stat, mean, line):
             pmf *= (x - 1 + r) / x * (1 - p)
         cdf += pmf
     return 1 - cdf
+
+
+def prob_over_player(stat, proj, line):
+    """prob_over for one of a player's projections, including PRA."""
+    if stat != "PRA":
+        return prob_over(stat, proj[stat], line)
+    var = sum(VAR_RATIO[s] * proj[s] for s in ("PTS", "REB", "AST"))
+    if var <= 0:
+        return 0.0
+    return 0.5 * math.erfc((line - proj["PRA"]) / (math.sqrt(2 * var) * PRA_SD_FACTOR))
+
+
+def cost_to_american(cost):
+    """A $1 contract bought at `cost` dollars, as American odds."""
+    return round(-100 * cost / (1 - cost)) if cost >= 0.5 else round(100 * (1 - cost) / cost)
 
 
 def _match_event(odds_events, home_name, away_name):
@@ -134,7 +167,11 @@ def grade_pending(conn, today_iso):
                 "SELECT athlete_id, stat, line FROM prop_picks WHERE event_id=? AND graded=0",
                 (event_id,)).fetchall():
             row = box.get(athlete_id)
-            actual = row.get(stat.lower()) if row else None
+            if row and stat == "PRA":
+                parts = [row.get(k) for k in ("pts", "reb", "ast")]
+                actual = sum(parts) if None not in parts else None
+            else:
+                actual = row.get(stat.lower()) if row else None
             if actual is None or not row.get("min"):
                 result = "void"
             else:
@@ -241,43 +278,75 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
             p = by_name.get(norm_name(name))
             if not p:
                 continue
-            model = prob_over(stat, p["proj"][stat], line)
+            model = prob_over_player(stat, p["proj"], line)
             o, u = odds_api.american_to_implied_prob(over), odds_api.american_to_implied_prob(under)
             market = o / (o + u)
             blend = (model + market) / 2
             if blend < MIN_BLEND:
                 continue
-            entry = {"stat": stat, "line": line, "price": over, "chance": blend, "pick": False}
+            entry = {"stat": stat, "line": line, "price": over, "book": "DK", "chance": blend, "pick": False}
             p.setdefault("props", []).append(entry)
-            if model < 0.5 or abs(model - market) > MAX_DISAGREEMENT:
+            if model < 0.5 or abs(model - market) > MAX_DISAGREEMENT or blend - o < MIN_EV:
                 continue
-            candidates.append((blend, p, stat, line, over, model, market, entry))
+            candidates.append((blend - o, p, stat, line, over, model, market, entry))
+
+        # Kalshi: per player and stat, keep the threshold with the most value at the ask + fee.
+        kalshi_lines = kalshi.get_nba_player_markets(now_et.date(), g["home_abbr"], g["away_abbr"])
+        best = {}
+        for k in kalshi_lines:
+            p = by_name.get(norm_name(k["player"]))
+            if not p:
+                continue
+            model = prob_over_player(k["stat"], p["proj"], k["line"])
+            market = (k["bid"] + k["ask"]) / 2
+            cost = k["ask"] + KALSHI_FEE_RATE * k["ask"] * (1 - k["ask"])
+            blend = (model + market) / 2
+            if blend < MIN_BLEND or blend < cost or cost > KALSHI_MAX_COST:
+                continue
+            key = (p["athlete_id"], k["stat"])
+            if key not in best or blend - cost > best[key][0]:
+                best[key] = (blend - cost, p, k, model, market, cost, blend)
+        for _, p, k, model, market, cost, blend in best.values():
+            price = cost_to_american(cost)
+            entry = {"stat": k["stat"], "line": k["line"], "price": price, "book": "Kalshi",
+                     "chance": blend, "pick": False}
+            p.setdefault("props", []).append(entry)
+            if model < 0.5 or abs(model - market) > MAX_DISAGREEMENT or blend - cost < MIN_EV:
+                continue
+            candidates.append((blend - cost, p, k["stat"], k["line"], price, model, market, entry))
+
+        # Ranked by expected value per $1 (Chance minus the price's implied probability);
+        # one pick per player and stat (DK or Kalshi, whichever has more value).
         candidates.sort(key=lambda c: -c[0])
+        seen = set()
+        candidates = [c for c in candidates
+                      if (c[1]["athlete_id"], c[2]) not in seen and not seen.add((c[1]["athlete_id"], c[2]))]
         for c in candidates[:MAX_PICKS_PER_GAME]:
             c[-1]["pick"] = True
         shown = [p for i, p in enumerate(players) if i < PROJECTED_PLAYERS_PER_GAME or p.get("props")]
         for p in shown:
-            p.setdefault("props", []).sort(key=lambda e: ("PTS", "REB", "AST").index(e["stat"]))
-        projections.append({"matchup": matchup, "tipoff": g["tipoff_et_str"], "has_lines": bool(lines),
+            p.setdefault("props", []).sort(key=lambda e: (STAT_ORDER.index(e["stat"]), e["book"]))
+        has_lines = bool(lines or kalshi_lines)
+        projections.append({"matchup": matchup, "tipoff": g["tipoff_et_str"], "has_lines": has_lines,
                             "n_picks": min(len(candidates), MAX_PICKS_PER_GAME), "players": shown})
-        if not lines:
+        if not has_lines:
             continue
 
         # Re-pick from scratch each pre-tip run, like the game picks.
         conn.execute("DELETE FROM prop_picks WHERE event_id=? AND graded=0", (g["event_id"],))
-        for blend, p, stat, line, over, model, market, _ in candidates[:MAX_PICKS_PER_GAME]:
+        for _, p, stat, line, price, model, market, entry in candidates[:MAX_PICKS_PER_GAME]:
             conn.execute(
                 """INSERT OR REPLACE INTO prop_picks (event_id, game_date, matchup, athlete_id,
-                   player, team, stat, line, price, proj, prob, market_prob, graded, created_at)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?)""",
+                   player, team, stat, line, price, proj, prob, market_prob, graded, created_at, book)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)""",
                 (g["event_id"], today_iso, f"{matchup} {g['tipoff_et_str']}", p["athlete_id"],
-                 p["name"], p["team"], stat, line, over, round(p["proj"][stat], 1), blend, market,
-                 datetime.utcnow().isoformat()))
+                 p["name"], p["team"], stat, line, price, round(p["proj"][stat], 1), entry["chance"], market,
+                 datetime.utcnow().isoformat(), entry["book"]))
     conn.commit()
 
     picks = [dict(zip(("matchup", "player", "team", "stat", "line", "price", "proj", "prob",
-                       "result", "actual"), r))
+                       "result", "actual", "book"), r))
              for r in conn.execute("SELECT matchup, player, team, stat, line, price, proj, prob, "
-                                   "result, actual FROM prop_picks WHERE game_date=? "
+                                   "result, actual, book FROM prop_picks WHERE game_date=? "
                                    "ORDER BY prob DESC", (today_iso,))]
     return {"picks": picks, "projections": projections, "record": get_record(conn)}
