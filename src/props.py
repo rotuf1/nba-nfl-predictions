@@ -36,11 +36,11 @@ PRA_SD_FACTOR = 1.25
 STAT_ORDER = ("PTS", "REB", "AST", "PRA")
 
 # Kalshi player markets (free, every game, every run). Buying the over costs the yes ask
-# plus Kalshi's trading fee (~0.07 x p x (1-p) per $1 contract). A Kalshi prop is only
-# shown if its Chance covers that cost, and never above KALSHI_MAX_COST (near-locks with
-# almost no payout).
+# plus Kalshi's trading fee (~0.07 x p x (1-p) per $1 contract).
 KALSHI_FEE_RATE = 0.07
-KALSHI_MAX_COST = 0.85
+# Nothing priced heavier than -150 (60 cents on Kalshi) is shown, from either book: the user
+# wants props near a 2x payout that still hit 60%+, not near-locks like 10+ points at -381.
+MAX_COST = 0.60
 
 # Only overs whose probability ("Chance": model blended 50/50 with the market price) is at
 # least MIN_BLEND are shown at all. A pick is one of those whose Chance beats the price
@@ -282,7 +282,7 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
             o, u = odds_api.american_to_implied_prob(over), odds_api.american_to_implied_prob(under)
             market = o / (o + u)
             blend = (model + market) / 2
-            if blend < MIN_BLEND:
+            if blend < MIN_BLEND or o > MAX_COST:
                 continue
             entry = {"stat": stat, "line": line, "price": over, "book": "DK", "chance": blend, "pick": False}
             p.setdefault("props", []).append(entry)
@@ -301,7 +301,7 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
             market = (k["bid"] + k["ask"]) / 2
             cost = k["ask"] + KALSHI_FEE_RATE * k["ask"] * (1 - k["ask"])
             blend = (model + market) / 2
-            if blend < MIN_BLEND or blend < cost or cost > KALSHI_MAX_COST:
+            if blend < MIN_BLEND or blend < cost or cost > MAX_COST:
                 continue
             key = (p["athlete_id"], k["stat"])
             if key not in best or blend - cost > best[key][0]:
