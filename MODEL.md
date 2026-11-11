@@ -272,7 +272,7 @@ correct/incorrect count (overall and per league) is shown on the site above the 
 
 ## 8. NBA player props (experimental, added 2026-11-03)
 
-`src/props.py`, shown in its own section below the game cards. Overs only.
+`src/props.py`, shown in its own section below the game cards. Overs and unders (unders added 2026-11-11).
 
 - **Projection** (free, ESPN season averages, one request per player): per-minute rate for
   points/rebounds/assists = this season's rate blended with last season's worth 400 minutes
@@ -280,18 +280,28 @@ correct/incorrect count (overall and per league) is shown on the site above the 
   (`K_GAMES`); projection = rate x minutes. Players with no games this season, or listed on the
   injury report at all (Out/IR/Doubtful/Questionable/Day-To-Day, including manual overrides),
   are skipped.
+- **Blowout minutes** (added 2026-11-11): expected margin = |inverse normal of the home win
+  probability| x 12 points (market no-vig if available, else Kalshi, else the Elo model -- this
+  already reflects the teams' records and strength, better than raw W-L). Past a 5-point margin
+  (capped at 20), minutes shift 0.8% per point: down for players averaging 30+ min, up for those
+  under 14, linear in between (22 min unchanged). An 85% favorite (~12-point margin) trims a
+  starter about 6%, ~2 minutes.
 - **Probability of the over**: rebounds/assists negative binomial, points normal, each with
-  variance = ratio x mean (`VAR_RATIO`: 1.35 / 1.35 / 2.4). The shown "Chance" is that
-  probability averaged 50/50 with DraftKings' no-vig price.
+  variance = ratio x mean (`VAR_RATIO`: 1.35 / 1.35 / 2.4). The under is 1 minus that.
+  The shown "Chance" is 25% that probability + 75% the market's no-vig price (`MODEL_WEIGHT`;
+  50/50 before 2026-11-11 -- the first 20 graded picks went 9-11 with results landing on the line
+  on average while the model projected ~2.2 above it, i.e. the market was right and the model's
+  disagreements were mostly things it didn't know, like minutes).
 - **Kalshi** (added 2026-11-10, free, every game, every run): Kalshi's NBA player markets
   (`KXNBAPTS`/`REB`/`AST`/`PRA`, thresholds like "25+ points" = over 24.5). Market probability = mid
-  of yes bid/ask; cost of the over = yes ask + Kalshi's fee (~0.07 x p x (1-p) per $1 contract).
+  of yes bid/ask; cost of the over = yes ask + Kalshi's fee, of the under = buying no at (1 - yes bid) + fee (~0.07 x p x (1-p) per $1 contract).
   Per player and stat, only the threshold with the most value is kept. **PRA** projection = PTS+REB+AST, normal, with the summed variance's sd widened 1.25x
   because the parts move together.
-- **Pick rule**: over only, Chance >= 60% and price no heavier than -150 / 60 cents (`MAX_COST`; nothing outside those is shown at all, so no near-locks with tiny payouts), Chance beats the
+- **Pick rule**: over or under, Chance >= 60% and price no heavier than -150 / 60 cents (`MAX_COST`; nothing outside those is shown at all, so no near-locks with tiny payouts), Chance beats the
   price's implied probability by at least 2 points (`MIN_EV`), model within 20 points of the
   market (bigger gaps are usually news the model lacks), ranked by that expected value, top 4 per
-  game, one per player and stat (DK or Kalshi). Re-picked on every run until tip, then locked.
+  game, at most one per player (before 2026-11-11: one per player and stat, which let one bad
+  game sink two picks on the same player). Re-picked on every run until tip, then locked.
   (Before 2026-11-10 picks were ranked by Chance with no value check -- that picked heavy favorites
   like -193 overs that need 66% to break even.)
 - **Lines and credits**: DK lines come from the-odds-api (3 credits per game: points, rebounds,

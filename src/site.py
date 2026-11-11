@@ -174,7 +174,7 @@ def render_props(props_data):
     rec = props_data["record"]
     rec_html = ""
     if rec["wins"] + rec["losses"]:
-        rec_html = (f'<div class="record"><span class="section-title">Prop record (graded overs)</span> '
+        rec_html = (f'<div class="record"><span class="section-title">Prop record</span> '
                     f'{fmt_record(rec["wins"], rec["losses"])}</div>')
 
     picks_html = ""
@@ -183,7 +183,7 @@ def render_props(props_data):
                         "void": '<span class="res-void">void</span>'}
         rows = "".join(
             f"<tr><td><strong>{esc(p['player'])}</strong> <span class=\"muted\">{esc(p['team'])}</span></td>"
-            f"<td><span class=\"prop-pick\">Over {p['line']:g} {esc(p['stat'])}</span></td>"
+            f"<td><span class=\"prop-pick\">{(p.get('side') or 'over').title()} {p['line']:g} {esc(p['stat'])}</span></td>"
             f"<td>{fmt_price(p.get('book') or 'DK', p['price'])}</td>"
             f"<td>{p['proj']:.1f}</td><td><strong>{p['prob'] * 100:.0f}%</strong></td>"
             f"<td>{result_badge.get(p['result'], '')}"
@@ -205,7 +205,7 @@ def render_props(props_data):
             if pl["props"]:
                 rows = "".join(
                     f'<tr class="{"is-pick" if e["pick"] else ""}"><td>{esc(e["stat"])}</td>'
-                    f'<td>Over {e["line"]:g}</td><td>{fmt_price(e["book"], e["price"])}</td>'
+                    f'<td>{e["side"].title()} {e["line"]:g}</td><td>{fmt_price(e["book"], e["price"])}</td>'
                     f'<td>{pl["proj"][e["stat"]]:.1f}</td><td>{e["chance"] * 100:.0f}%</td>'
                     f'<td>{pick_tag if e["pick"] else ""}</td></tr>'
                     for e in pl["props"])
@@ -235,8 +235,9 @@ def render_props(props_data):
                      f'</h3>{blocks}')
 
     return (f'<h2>NBA player props <span class="badge badge-final">experimental</span></h2>'
-            f'<p class="props-note">Overs at 60%+ only, priced -150 or better (pays 1.67x or more). My projection from ESPN season averages, blended 50/50 '
-            f'with the market price ("Chance"). Kalshi prices (points, rebounds, assists, PRA) cover every game; '
+            f'<p class="props-note">Overs and unders at 60%+ only, priced -150 or better (pays 1.67x or more), at most one pick per player. '
+            f'My projection from ESPN season averages (starters\' minutes trimmed when a blowout is expected), '
+            f'weighted 25% against 75% for the market price ("Chance"). Kalshi prices (points, rebounds, assists, PRA) cover every game; '
             f'DraftKings lines are added within ~6 hours of tip as odds-API credits allow. Kalshi prices '
             f'include its trading fee. See MODEL.md section 8.</p>{rec_html}{picks_html}{proj_html}')
 
