@@ -121,17 +121,23 @@ def get_events(league, api_key):
     return events, _remaining(resp)
 
 
+# US books for player props. the-odds-api bills each group of up to 10 bookmakers like one
+# region, so these cost the same one credit per market as DraftKings alone.
+PROP_BOOKS = ("draftkings", "fanduel", "betmgm", "williamhill_us", "espnbet", "fanatics",
+              "betrivers", "hardrockbet", "ballybet")
+
+
 def get_player_props(league, api_key, event_id, markets):
     """
-    (props, credits_remaining) for one event, DraftKings only. props is
-    [{player, market, line, over, under}] with American prices. Costs one credit per
+    (props, credits_remaining) for one event across PROP_BOOKS. props is
+    [{book, player, market, line, over, under}] with American prices. Costs one credit per
     market. (None, None) on failure.
     """
     sport = SPORT_KEY.get(league)
     try:
         resp = requests.get(
             f"{BASE_URL}/{sport}/events/{event_id}/odds",
-            params={"apiKey": api_key, "bookmakers": "draftkings", "markets": ",".join(markets),
+            params={"apiKey": api_key, "bookmakers": ",".join(PROP_BOOKS), "markets": ",".join(markets),
                     "oddsFormat": "american"},
             timeout=TIMEOUT,
         )
@@ -142,12 +148,11 @@ def get_player_props(league, api_key, event_id, markets):
         return None, None
     by_key = {}
     for bk in data.get("bookmakers", []):
-        if bk.get("key") != "draftkings":
-            continue
         for market in bk.get("markets", []):
             for o in market.get("outcomes", []):
-                key = (o.get("description"), market.get("key"), o.get("point"))
-                entry = by_key.setdefault(key, {"player": key[0], "market": key[1], "line": key[2]})
+                key = (bk.get("key"), o.get("description"), market.get("key"), o.get("point"))
+                entry = by_key.setdefault(key, {"book": key[0], "player": key[1], "market": key[2],
+                                                "line": key[3]})
                 entry[(o.get("name") or "").lower()] = o.get("price")
     props = [p for p in by_key.values() if p.get("over") is not None and p.get("under") is not None]
     return props, _remaining(resp)

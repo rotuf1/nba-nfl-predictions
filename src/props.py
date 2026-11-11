@@ -43,15 +43,17 @@ KALSHI_FEE_RATE = 0.07
 # wants props near a 2x payout that still hit 60%+, not near-locks like 10+ points at -381.
 MAX_COST = 0.60
 
-# "Chance" = MODEL_WEIGHT x my projection + the rest x the market's (vig-free) price. The
-# first 20 graded picks (9-11) showed the market lines were right on average and the model
-# ran ~2 points high, so the market gets most of the weight.
-MODEL_WEIGHT = 0.25
+# "Chance" = MODEL_WEIGHT x my projection + the rest x the market's (vig-free) probability.
+# The market is the sportsbook consensus when there are sportsbook lines for the player (see
+# market_means), else Kalshi's own mid price.
+MODEL_WEIGHT = 0.5
+# Kalshi mids with a wider bid-ask spread than this aren't trusted as the market on their own.
+KALSHI_MAX_SPREAD = 0.05
 # Overs and unders whose Chance is at least MIN_BLEND are shown at all. A pick is one of
 # those whose Chance beats the price actually paid by at least MIN_EV and where model and
 # market disagree by at most MAX_DISAGREEMENT (bigger gaps are almost always news the model
-# doesn't have, like a role change); picks are ranked by expected value, at most one per
-# player, top MAX_PICKS_PER_GAME per game.
+# doesn't have, like a role change); picks are ranked by expected value, one per player and
+# stat, top MAX_PICKS_PER_GAME per game.
 MIN_BLEND = 0.60
 MIN_EV = 0.02  # Chance minus the price's implied probability; smaller edges are within model error
 MAX_DISAGREEMENT = 0.20
@@ -83,6 +85,10 @@ def ensure_tables(conn):
         PRIMARY KEY (event_id, athlete_id, stat))""")
     if "book" not in {r[1] for r in conn.execute("PRAGMA table_info(prop_picks)")}:
         conn.execute("ALTER TABLE prop_picks ADD COLUMN book TEXT DEFAULT 'DK'")
+    conn.execute("""CREATE TABLE IF NOT EXISTS prop_book_lines (
+        event_id TEXT NOT NULL, book TEXT NOT NULL, player TEXT NOT NULL, stat TEXT NOT NULL,
+        line REAL NOT NULL, over_price INTEGER, under_price INTEGER, fetched_at TEXT,
+        PRIMARY KEY (event_id, book, player, stat))""")
     if "side" not in {r[1] for r in conn.execute("PRAGMA table_info(prop_picks)")}:
         conn.execute("ALTER TABLE prop_picks ADD COLUMN side TEXT DEFAULT 'over'")
     conn.commit()
@@ -150,6 +156,47 @@ def prob_over_player(stat, proj, line):
     if var <= 0:
         return 0.0
     return 0.5 * math.erfc((line - proj["PRA"]) / (math.sqrt(2 * var) * PRA_SD_FACTOR))
+
+
+def _implied_mean(stat, p_over, line):
+    """The mean whose prob_over at `line` equals p_over (bisection)."""
+    lo, hi = 0.01, 80.0
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if prob_over(stat, mid, line) < p_over else (lo, mid)
+    return (lo + hi) / 2
+
+
+def market_means(book_lines):
+    """
+    {(normalized player, stat): mean} implied by the sportsbooks: each book's no-vig over
+    probability is turned into the mean that gives it under the model's distribution, then
+    averaged across books. This puts every book (whatever its line) and every Kalshi
+    threshold on one scale. PRA = sum of PTS, REB and AST when all three are priced.
+    """
+    per = {}
+    for player, stat, line, over, under in book_lines:
+        if over is None or under is None:
+            continue
+        o, u = odds_api.american_to_implied_prob(over), odds_api.american_to_implied_prob(under)
+        per.setdefault((norm_name(player), stat), []).append(_implied_mean(stat, o / (o + u), line))
+    means = {k: sum(v) / len(v) for k, v in per.items()}
+    for name in {k[0] for k in means}:
+        parts = [means.get((name, s)) for s in ("PTS", "REB", "AST")]
+        if None not in parts:
+            means[(name, "PRA")] = sum(parts)
+    return means
+
+
+def market_prob_over(means, name, stat, line):
+    """Sportsbook-consensus probability of the over at `line`, or None without lines."""
+    if stat == "PRA":
+        parts = {s: means.get((name, s)) for s in ("PTS", "REB", "AST")}
+        if None in parts.values():
+            return None
+        return prob_over_player("PRA", {**parts, "PRA": sum(parts.values())}, line)
+    mean = means.get((name, stat))
+    return None if mean is None else prob_over(stat, mean, line)
 
 
 def expected_margin(game):
@@ -260,9 +307,13 @@ def _fetch_lines(conn, games, now_et, odds_key, warnings):
         allowance -= cost
         spent += cost
         for p in props:
-            conn.execute("INSERT OR REPLACE INTO prop_lines VALUES (?,?,?,?,?,?,?,?)",
-                         (g["event_id"], today_iso, p["player"], MARKETS[p["market"]], p["line"],
-                          p["over"], p["under"], datetime.utcnow().isoformat()))
+            row = (p["player"], MARKETS[p["market"]], p["line"], p["over"], p["under"],
+                   datetime.utcnow().isoformat())
+            conn.execute("INSERT OR REPLACE INTO prop_book_lines VALUES (?,?,?,?,?,?,?,?)",
+                         (g["event_id"], p["book"]) + row)
+            if p["book"] == "draftkings":
+                conn.execute("INSERT OR REPLACE INTO prop_lines VALUES (?,?,?,?,?,?,?,?)",
+                             (g["event_id"], today_iso) + row)
     elo.set_meta(conn, spent_key, str(spent))
     conn.commit()
     if skipped:
@@ -308,6 +359,10 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
                              "WHERE event_id=?", (g["event_id"],)).fetchall()
         by_name = {norm_name(p["name"]): p for p in players}
 
+        means = market_means(conn.execute(
+            "SELECT player, stat, line, over_price, under_price FROM prop_book_lines WHERE event_id=?",
+            (g["event_id"],)).fetchall())
+
         # Every priced side as (player, stat, line, side, model prob, market prob, cost, book).
         offers = []
         for name, stat, line, over, under in lines:
@@ -316,18 +371,26 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
                 continue
             model = prob_over_player(stat, p["proj"], line)
             o, u = odds_api.american_to_implied_prob(over), odds_api.american_to_implied_prob(under)
-            market = o / (o + u)
+            market = market_prob_over(means, norm_name(name), stat, line)
+            if market is None:
+                market = o / (o + u)
             offers.append((p, stat, line, "over", model, market, o, over, "DK"))
             offers.append((p, stat, line, "under", 1 - model, 1 - market, u, under, "DK"))
         # Kalshi: the over is buying yes at the ask, the under is buying no at 1 - the yes bid,
-        # each plus the trading fee.
+        # each plus the trading fee. Kalshi's thin markets often drift from the sportsbooks, so
+        # the sportsbook consensus is the market when there is one; otherwise Kalshi's mid, and
+        # only if its spread is tight enough to mean something.
         kalshi_lines = kalshi.get_nba_player_markets(now_et.date(), g["home_abbr"], g["away_abbr"])
         for k in kalshi_lines:
             p = by_name.get(norm_name(k["player"]))
             if not p:
                 continue
             model = prob_over_player(k["stat"], p["proj"], k["line"])
-            market = (k["bid"] + k["ask"]) / 2
+            market = market_prob_over(means, norm_name(k["player"]), k["stat"], k["line"])
+            if market is None:
+                if k["ask"] - k["bid"] > KALSHI_MAX_SPREAD:
+                    continue
+                market = (k["bid"] + k["ask"]) / 2
             for side, m, mk, buy in (("over", model, market, k["ask"]),
                                      ("under", 1 - model, 1 - market, 1 - k["bid"])):
                 cost = buy + KALSHI_FEE_RATE * buy * (1 - buy)
@@ -355,11 +418,11 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
             candidates.append((ev, p, stat, line, price, model, market, entry))
 
         # Ranked by expected value per $1 (Chance minus the price's implied probability);
-        # one pick per player, so one bad night for a player can't sink several picks.
+        # one pick per player and stat (DK or Kalshi, over or under, whichever has more value).
         candidates.sort(key=lambda c: -c[0])
         seen = set()
         candidates = [c for c in candidates
-                      if c[1]["athlete_id"] not in seen and not seen.add(c[1]["athlete_id"])]
+                      if (c[1]["athlete_id"], c[2]) not in seen and not seen.add((c[1]["athlete_id"], c[2]))]
         for c in candidates[:MAX_PICKS_PER_GAME]:
             c[-1]["pick"] = True
         shown = [p for i, p in enumerate(players) if i < PROJECTED_PLAYERS_PER_GAME or p.get("props")]

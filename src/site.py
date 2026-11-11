@@ -235,9 +235,10 @@ def render_props(props_data):
                      f'</h3>{blocks}')
 
     return (f'<h2>NBA player props <span class="badge badge-final">experimental</span></h2>'
-            f'<p class="props-note">Overs and unders at 60%+ only, priced -150 or better (pays 1.67x or more), at most one pick per player. '
+            f'<p class="props-note">Overs and unders at 60%+ only, priced -150 or better (pays 1.67x or more). '
             f'My projection from ESPN season averages (starters\' minutes trimmed when a blowout is expected), '
-            f'weighted 25% against 75% for the market price ("Chance"). Kalshi prices (points, rebounds, assists, PRA) cover every game; '
+            f'blended 50/50 with the market ("Chance"): the consensus of up to 9 sportsbooks where their lines are in, '
+            f'otherwise Kalshi\'s own price. Kalshi prices (points, rebounds, assists, PRA) cover every game; '
             f'DraftKings lines are added within ~6 hours of tip as odds-API credits allow. Kalshi prices '
             f'include its trading fee. See MODEL.md section 8.</p>{rec_html}{picks_html}{proj_html}')
 
