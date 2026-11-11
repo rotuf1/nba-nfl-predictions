@@ -288,8 +288,10 @@ correct/incorrect count (overall and per league) is shown on the site above the 
   starter about 6%, ~2 minutes.
 - **Probability of the over**: rebounds/assists negative binomial, points normal, each with
   variance = ratio x mean (`VAR_RATIO`: 1.35 / 1.35 / 2.4). The under is 1 minus that.
-  The shown "Chance" is 50% that probability + 50% the market's (`MODEL_WEIGHT`; briefly 25/75
-  on 2026-11-11 after a 9-11 start, which left almost no picks).
+  The shown "Chance" is 40% that probability + 60% the market's (`MODEL_WEIGHT`). It was 50/50
+  until 2026-11-11; on the first 20 graded picks (9-11) more market weight scored better at every
+  step (log-loss 0.743 at 50/50, 0.736 at 60/40, 0.715 market-only), and 75/25 left almost no picks.
+  Revisit after ~50 more graded picks.
 - **Market reference** (added 2026-11-11): the odds-API prop call asks for up to 9 US books
   (`PROP_BOOKS`, same credit cost as DraftKings alone). Each book's no-vig over probability is
   converted to the mean that produces it under the model's distribution, and the books' means are

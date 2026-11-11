@@ -46,7 +46,7 @@ MAX_COST = 0.60
 # "Chance" = MODEL_WEIGHT x my projection + the rest x the market's (vig-free) probability.
 # The market is the sportsbook consensus when there are sportsbook lines for the player (see
 # market_means), else Kalshi's own mid price.
-MODEL_WEIGHT = 0.5
+MODEL_WEIGHT = 0.4
 # Kalshi mids with a wider bid-ask spread than this aren't trusted as the market on their own.
 KALSHI_MAX_SPREAD = 0.05
 # Overs and unders whose Chance is at least MIN_BLEND are shown at all. A pick is one of
