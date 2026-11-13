@@ -296,9 +296,14 @@ correct/incorrect count (overall and per league) is shown on the site above the 
   (`PROP_BOOKS`, same credit cost as DraftKings alone). Each book's no-vig over probability is
   converted to the mean that produces it under the model's distribution, and the books' means are
   averaged (`market_means`). That consensus mean prices any line -- a DK line, any Kalshi
-  threshold, or PRA (sum of the PTS/REB/AST means). Without sportsbook lines for the player, the
-  market is Kalshi's mid, used only when its bid-ask spread is 5 cents or less
-  (`KALSHI_MAX_SPREAD`), since Kalshi's thin prop markets often drift from the books.
+  threshold, or PRA (sum of the PTS/REB/AST means). Since 2026-11-13 Kalshi is only a place to
+  bet: a Kalshi price is considered only when the sportsbooks have lines for that player and stat,
+  and never for PRA (`KALSHI_STATS`). Through 11/12 Kalshi picks went 8-12 (-$605 at $100/bet,
+  PRA 1-7) vs DK 7-7; they lost to Kalshi's own prices too, so the problem was the model
+  out-guessing a market alone, plus picking the best of many thresholds (winner's curse).
+  Before that, Kalshi's mid was the market when no sportsbook lines existed.
+  Picks can be placed at DraftKings or FanDuel (`BET_BOOKS`, FanDuel added 2026-11-13) or Kalshi;
+  per player and stat the one with the most value wins (line shopping).
 - **Kalshi** (added 2026-11-10, free, every game, every run): Kalshi's NBA player markets
   (`KXNBAPTS`/`REB`/`AST`/`PRA`, thresholds like "25+ points" = over 24.5). Market probability = mid
   of yes bid/ask; cost of the over = yes ask + Kalshi's fee, of the under = buying no at (1 - yes bid) + fee (~0.07 x p x (1-p) per $1 contract).

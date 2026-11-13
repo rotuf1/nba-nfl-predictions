@@ -160,9 +160,9 @@ def render_record(record):
 
 
 def fmt_price(book, american):
-    """'DK -127', or 'Kalshi 72¢' (the cost of a $1 contract, fee included)."""
+    """'DK -127', 'FD +105', or 'Kalshi 72¢' (the cost of a $1 contract, fee included)."""
     if book != "Kalshi":
-        return f"DK {fmt_odds(american)}"
+        return f"{book} {fmt_odds(american)}"
     cost = -american / (-american + 100) if american < 0 else 100 / (american + 100)
     return f"Kalshi {cost * 100:.0f}¢"
 
@@ -237,10 +237,10 @@ def render_props(props_data):
     return (f'<h2>NBA player props <span class="badge badge-final">experimental</span></h2>'
             f'<p class="props-note">Overs and unders at 60%+ only, priced -150 or better (pays 1.67x or more). '
             f'My projection from ESPN season averages (starters\' minutes trimmed when a blowout is expected), '
-            f'weighted 40% against 60% for the market ("Chance"): the consensus of up to 9 sportsbooks where their lines are in, '
-            f'otherwise Kalshi\'s own price. Kalshi prices (points, rebounds, assists, PRA) cover every game; '
-            f'DraftKings lines are added within ~6 hours of tip as odds-API credits allow. Kalshi prices '
-            f'include its trading fee. See MODEL.md section 8.</p>{rec_html}{picks_html}{proj_html}')
+            f'weighted 40% against 60% for the market ("Chance"): the consensus of up to 9 sportsbooks. '
+            f'Sportsbook lines are added within ~6 hours of tip as odds-API credits allow; until then a game has '
+            f'no props. Bets are priced at DraftKings, FanDuel or Kalshi (points, rebounds, assists), whichever pays more; '
+            f'Kalshi prices include its trading fee. See MODEL.md section 8.</p>{rec_html}{picks_html}{proj_html}')
 
 
 def render_page(nba_games, nfl_games, updated_et_str, warnings=None, record=None, props_data=None):

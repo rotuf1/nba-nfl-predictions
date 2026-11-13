@@ -45,10 +45,13 @@ MAX_COST = 0.60
 
 # "Chance" = MODEL_WEIGHT x my projection + the rest x the market's (vig-free) probability.
 # The market is the sportsbook consensus when there are sportsbook lines for the player (see
-# market_means), else Kalshi's own mid price.
+# market_means). Kalshi is only a place to bet, never the market on its own.
 MODEL_WEIGHT = 0.4
-# Kalshi mids with a wider bid-ask spread than this aren't trusted as the market on their own.
-KALSHI_MAX_SPREAD = 0.05
+# Kalshi PRA went 1-7 (four thresholds a night to pick from, and the PRA projection ran ~5
+# points high), so Kalshi is used for these stats only.
+KALSHI_STATS = ("PTS", "REB", "AST")
+# Sportsbooks a pick can be placed at (the-odds-api key -> label); the rest only feed the consensus.
+BET_BOOKS = {"draftkings": "DK", "fanduel": "FD"}
 # Overs and unders whose Chance is at least MIN_BLEND are shown at all. A pick is one of
 # those whose Chance beats the price actually paid by at least MIN_EV and where model and
 # market disagree by at most MAX_DISAGREEMENT (bigger gaps are almost always news the model
@@ -355,17 +358,21 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
         players.sort(key=lambda p: -p["min"])
         matchup = f"{g['away_abbr']} @ {g['home_abbr']}"
 
-        lines = conn.execute("SELECT player, stat, line, over_price, under_price FROM prop_lines "
-                             "WHERE event_id=?", (g["event_id"],)).fetchall()
+        book_lines = conn.execute(
+            "SELECT book, player, stat, line, over_price, under_price FROM prop_book_lines WHERE event_id=?",
+            (g["event_id"],)).fetchall()
+        if book_lines:
+            lines = [(BET_BOOKS[r[0]],) + r[1:] for r in book_lines if r[0] in BET_BOOKS]
+        else:  # fetched before 2026-11-11: DraftKings only
+            lines = [("DK",) + r for r in conn.execute(
+                "SELECT player, stat, line, over_price, under_price FROM prop_lines WHERE event_id=?",
+                (g["event_id"],))]
         by_name = {norm_name(p["name"]): p for p in players}
-
-        means = market_means(conn.execute(
-            "SELECT player, stat, line, over_price, under_price FROM prop_book_lines WHERE event_id=?",
-            (g["event_id"],)).fetchall())
+        means = market_means([r[1:] for r in book_lines])
 
         # Every priced side as (player, stat, line, side, model prob, market prob, cost, book).
         offers = []
-        for name, stat, line, over, under in lines:
+        for book, name, stat, line, over, under in lines:
             p = by_name.get(norm_name(name))
             if not p or over is None or under is None:
                 continue
@@ -374,23 +381,21 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
             market = market_prob_over(means, norm_name(name), stat, line)
             if market is None:
                 market = o / (o + u)
-            offers.append((p, stat, line, "over", model, market, o, over, "DK"))
-            offers.append((p, stat, line, "under", 1 - model, 1 - market, u, under, "DK"))
+            offers.append((p, stat, line, "over", model, market, o, over, book))
+            offers.append((p, stat, line, "under", 1 - model, 1 - market, u, under, book))
         # Kalshi: the over is buying yes at the ask, the under is buying no at 1 - the yes bid,
-        # each plus the trading fee. Kalshi's thin markets often drift from the sportsbooks, so
-        # the sportsbook consensus is the market when there is one; otherwise Kalshi's mid, and
-        # only if its spread is tight enough to mean something.
+        # each plus the trading fee. Priced only against the sportsbook consensus: on its own
+        # (8-12 through 2026-11-12) the model kept losing to Kalshi's prices, so a Kalshi pick
+        # now needs the sportsbooks to agree it's mispriced.
         kalshi_lines = kalshi.get_nba_player_markets(now_et.date(), g["home_abbr"], g["away_abbr"])
         for k in kalshi_lines:
             p = by_name.get(norm_name(k["player"]))
-            if not p:
+            if not p or k["stat"] not in KALSHI_STATS:
                 continue
-            model = prob_over_player(k["stat"], p["proj"], k["line"])
             market = market_prob_over(means, norm_name(k["player"]), k["stat"], k["line"])
             if market is None:
-                if k["ask"] - k["bid"] > KALSHI_MAX_SPREAD:
-                    continue
-                market = (k["bid"] + k["ask"]) / 2
+                continue
+            model = prob_over_player(k["stat"], p["proj"], k["line"])
             for side, m, mk, buy in (("over", model, market, k["ask"]),
                                      ("under", 1 - model, 1 - market, 1 - k["bid"])):
                 cost = buy + KALSHI_FEE_RATE * buy * (1 - buy)
@@ -403,7 +408,7 @@ def run(conn, games, season_year, now_et, odds_key, warnings):
             chance = MODEL_WEIGHT * model + (1 - MODEL_WEIGHT) * market
             if chance < MIN_BLEND or cost > MAX_COST:
                 continue
-            key = (p["athlete_id"], stat, side, book, line if book == "DK" else None)
+            key = (p["athlete_id"], stat, side, book, line if book != "Kalshi" else None)
             if key in best and chance - cost <= best[key][0]:
                 continue
             best[key] = (chance - cost, p, stat, line, side, model, market, cost,
